@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 import CodeWorld
 import System.Random
 import Data.Matrix
@@ -25,7 +26,18 @@ initTetris (f:figs) = (figs, spawnFigure f, playfield)
     where playfield = matrix 20 10 (\_ -> black)
 
 manageEvent:: Event -> Tetris -> Tetris
-manageEvent _ state = state
+manageEvent (TimePassing t) state@(figs,figura,playfield) 
+                    | mod t 1000 == 0 = newState
+                    | otherwise = state
+                    where newState = (figs,moveDown figura,playfield) 
+
+manageEvent (KeyPress t) (figs,figura,playfield) = (figs,nuevaFigura,playfield)
+                    where nuevaFigura = case t of "Up" -> rotateFigure figura
+                                             t of "Down" -> moveDown figura 
+                                             t of "Left" -> moveLeft figura
+                                             t of "Right" -> moveRight figura
+                                             t of _ -> figura 
+
 
 drawTetris:: Tetris -> Picture
 drawTetris (_, f, m) = center $ drawFigure f & drawPlayfield m
