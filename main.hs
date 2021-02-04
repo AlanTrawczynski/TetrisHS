@@ -37,16 +37,26 @@ drawFigure:: Figure -> Picture
 drawFigure (ps, t) = pictures $ map (\p -> drawPoint p c) ps
   where c = red -- caseOf con color por figura
 
-drawPoint :: Point -> Color -> Picture
-drawPoint (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
-
 drawPlayfield:: Playfield -> Picture
-drawPlayfield m = pictures [drawPoint p color | 
-                            row <- [1..nrows m], 
-                            col <- [1..ncols m], 
+drawPlayfield m = squares & bg
+  where nr = nrows m
+        nc = ncols m
+        squares = pictures [drawPoint p color | 
+                            row <- [1..nr], 
+                            col <- [1..nc], 
                             let p = (fromIntegral col, fromIntegral row),
-                            let color = m ! (row,col)
-                            ]
+                            let color = m !. (row,col),
+                            color /= black]
+        bg = colored black (translated (x/2) (y/2) (solidRectangle x y))
+          where x = fromIntegral nc
+                y = fromIntegral nr
+
+drawPoint :: Point -> Color -> Picture
+drawPoint (x, y) c = colored c (translated (x-0.5) (y-0.5) (solidRectangle 0.95 0.95))
+
+(!.) :: Matrix a -> (Int,Int) -> a
+m !. (r,c) = getElem r' c m
+  where r' = (nrows m) - r + 1
 
 spawnFigure:: Int -> Figure
 spawnFigure = undefined
