@@ -14,19 +14,18 @@ type Time = Double
 type Tetris = ([Int], Figure, Playfield, Time)
 type Figure = ([Point], FigureType)
 type FigureType = Char
-
--- Black -> Empty
-type Playfield = Matrix Color
+type Playfield = Matrix Color -- Black -> Empty
 
 initTetris:: [Int] -> Tetris
-initTetris (f:figs) = (figs, generateFigure f, playfield, 0)
-    where playfield = matrix 20 10 (\_ -> black)
+initTetris figs@(f:rest)
+    | f == 0    = initTetris rest
+    | otherwise = (figs, generateFigure f, playfield, 0)
+      where playfield = matrix 20 10 (\_ -> black)
 
 manageEvent:: Event -> Tetris -> Tetris
 manageEvent (TimePassing t) state@(figs,figura,playfield,time) 
                     | time - 1 > 0 = moveDown state
                     | otherwise = (figs,figura,playfield,time+t)
-
 manageEvent (KeyPress t) state@(figs,figura,playfield,time) = newState
                     where newState = case t of 
                                             "Up" -> (figs,rotateFigure figura,playfield,time)
@@ -34,19 +33,25 @@ manageEvent (KeyPress t) state@(figs,figura,playfield,time) = newState
                                             "Left" -> moveLeft state
                                             "Right" -> moveRight state
                                             _ -> state
-
 manageEvent _ state = state
 
 drawTetris:: Tetris -> Picture
-drawTetris (_, f, m,_) = ftext & (center $ drawFigure f & drawPlayfield m & coordinatePlane)
-  where center = translated (-nc'/2) (-nr'/2)
+drawTetris (_, f, m,_) = ftext & (center $ drawFigure f & drawPlayfield m) & coordinatePlane
+  where center = id --translated ((-nc'-1)/2) ((-nr'-1)/2)
         nr' = fromIntegral $ nrows m
         nc' = fromIntegral $ ncols m
-        ftext = colored green (lettering $ pack $ show $ fst f)
+        ftext = colored green (lettering $ pack $ show $ fst f) --temp
 
 drawFigure:: Figure -> Picture
 drawFigure (ps, t) = pictures $ map (\p -> drawPoint p c) ps
-  where c = red -- caseOf con color por figura
+  where c = dull $ case t of
+          'O' -> yellow
+          'I' -> light blue
+          'L' -> orange
+          'J' -> blue
+          'S' -> red
+          'Z' -> green
+          'T' -> purple
 
 change :: Matrix a -> (Int,Int) -> (Int,Int)
 change m (r,c) = (r',c)
@@ -62,9 +67,9 @@ drawPlayfield m = squares & bg
                             let p = (fromIntegral col, fromIntegral row),
                             let color = m !. (row,col),
                             color /= black]
-        bg = colored black (translated ((x+1)/2) ((y+1)/2) (solidRectangle x y))
-          where x = fromIntegral nc
-                y = fromIntegral nr
+        bg = colored black (translated ((nc'+1)/2) ((nr'+1)/2) (solidRectangle nc' nr'))
+          where nc' = fromIntegral nc
+                nr' = fromIntegral nr
 
 drawPoint :: Point -> Color -> Picture
 drawPoint (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
@@ -75,9 +80,9 @@ m !. (r,c) = getElem r' c m
 
 nextFigure:: [Int] -> (Figure, [Int])
 nextFigure (current:next:rest)
-  | current /= next && next /= 0 = (generateFigure next, rest)
+  | current /= next && next /= 0 = (generateFigure next, next:rest)
   | otherwise = reroll
-    where reroll = (generateFigure next', rest')
+    where reroll = (generateFigure next', next':rest')
           (next':rest') = dropWhile (==0) rest
 
 generateFigure:: Int -> Figure
@@ -89,7 +94,7 @@ generateFigure n = case n of
   5 -> ([(5,19),(4,19),(5,20),(6,20)], 'S')
   6 -> ([(5,19),(6,19),(4,20),(5,20)], 'Z')
   7 -> ([(5,19),(4,19),(6,19),(5,20)], 'T')
-  _ -> ([(4,20),(5,20),(6,20),(7,20)], 'I')
+  
 -- x : columna en la que se encuentra la figura
 -- y : fila en la que se encuentra la figura
 validPosition :: [Point] -> Playfield -> Bool
@@ -146,7 +151,7 @@ rotateFigure (ps, t) = case t of
                   | x1 > x2 = ((x1+x2)/2, y1+0.5)
                   | y1 > y2 = (x1-0.5, (y1+y2)/2)
                   | y1 < y2 = (x1+0.5, (y1+y2)/2)
-  t -> (ps', t)
+  t   -> (ps', t)
     where ps' = center:(rotatePoints center rest)
           (center:rest) = ps
 
