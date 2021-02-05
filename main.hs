@@ -37,6 +37,7 @@ manageEvent (KeyPress t) (figs,figura,playfield,time) = (figs,nuevaFigura,playfi
                                               --"Right" -> moveRight figura
                                               _ -> figura 
 
+manageEvent _ state = state
 
 drawTetris:: Tetris -> Picture
 drawTetris (_, f, m,_) = center $ drawFigure f & drawPlayfield m
@@ -70,7 +71,8 @@ m !. (r,c) = getElem r' c m
   where r' = (nrows m) - r + 1
 
 spawnFigure:: Int -> Figure
-spawnFigure = undefined
+spawnFigure n = ([(4,4),(4,5),(3,5),(5,4)], 'Z') --provisional
+
 
 rotateFigure:: Figure -> Figure
 rotateFigure (ps, t) = case t of
