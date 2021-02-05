@@ -52,10 +52,6 @@ change :: Matrix a -> (Int,Int) -> (Int,Int)
 change m (r,c) = (r',c)
   where r' = (nrows m) - r + 1
 
--- problema de drawPlayField -> Los puntos se definen como (x,y), con x = columna en la que se posicionan y = fila en que se posicionan.
--- así es al menos como lo representa translated... no obstante en la matriz el (4,1) sería el punto (1,4)
--- dicho de otro modo, la columna de la matriz (4) es la fila del punto:
--- así que let p = (fromIntegral row, fromIntegral col),
 drawPlayfield:: Playfield -> Picture
 drawPlayfield m = squares & bg
   where nr = nrows m
@@ -63,7 +59,7 @@ drawPlayfield m = squares & bg
         squares = pictures [drawPoint p color | 
                             row <- [1..nr], 
                             col <- [1..nc], 
-                            let p = (fromIntegral row, fromIntegral col),
+                            let p = (fromIntegral col, fromIntegral row),
                             let color = m !. (row,col),
                             color /= black]
         bg = colored black (translated ((x+1)/2) ((y+1)/2) (solidRectangle x y))
@@ -137,7 +133,8 @@ refresh :: Playfield -> Figure -> Playfield
 refresh playfield fig@([],_) = playfield
 refresh playfield fig@((x,y):ps,t) = refresh (setElem (color t) pos playfield) (ps,t)
                 where color _ = red
-                      pos = change playfield (floor x, floor y) 
+                      -- el punto (1,4) en el eje de coordenadas corresponde con el (4,1) en la matriz.
+                      pos = change playfield (floor y, floor x) 
 
 rotateFigure:: Figure -> Figure
 rotateFigure (ps, t) = case t of
