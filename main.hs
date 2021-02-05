@@ -18,7 +18,6 @@ type FigureType = Char
 -- Black -> Empty
 type Playfield = Matrix Color
 
-
 initTetris:: [Int] -> Tetris
 initTetris (f:figs) = (figs, generateFigure f, playfield, 0)
     where playfield = matrix 20 10 (\_ -> black)
@@ -77,7 +76,6 @@ drawPoint (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
 (!.) :: Matrix a -> (Int,Int) -> a
 m !. (r,c) = getElem r' c m
   where r' = (nrows m) - r + 1
-
 
 nextFigure:: [Int] -> (Figure, [Int])
 nextFigure (current:next:rest)
@@ -158,3 +156,4 @@ rotateFigure (ps, t) = case t of
 rotatePoints:: Point -> [Point] -> [Point]
 rotatePoints center ps = map (rotate center) ps
   where rotate (xo,yo) (xi,yi) = (yi-yo+xo, -(xi-xo)+yo)
+  
