@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 import CodeWorld
-import System.Random
-import Data.Matrix
+import System.Random (getStdGen, randomRs)
+import Data.Matrix (matrix)
 
 main:: IO ()
 main = do 
@@ -14,8 +14,7 @@ main = do
 type Tetris = ([Int], Figure, Playfield)
 
 type Figure = ([Point], FigureType)
--- 0 -> O | 1 -> I | 2 -> L | 3 -> J | 4 -> S | 5 -> Z | 6 -> T
-type FigureType = Int
+type FigureType = Char
 
 -- Black -> Empty
 type Playfield = Matrix Color
@@ -41,9 +40,9 @@ manageEvent (KeyPress t) (figs,figura,playfield) = (figs,nuevaFigura,playfield)
 
 drawTetris:: Tetris -> Picture
 drawTetris (_, f, m) = center $ drawFigure f & drawPlayfield m
-  where center = translated (-ncols'/2) (-nrows'/2)
-        ncols' = fromIntegral $ ncols m
-        nrows' = fromIntegral $ nrows m
+  where center = translated (-nc'/2) (-nr'/2)
+        nr' = fromIntegral $ nrows m
+        nc' = fromIntegral $ ncols m
 
 drawFigure:: Figure -> Picture
 drawFigure (ps, t) = pictures $ map (\p -> drawPoint p c) ps
@@ -74,6 +73,19 @@ spawnFigure:: Int -> Figure
 spawnFigure = undefined
 
 rotateFigure:: Figure -> Figure
-rotateFigure ((center:ps), t) = ((center:ps'), t)
-    where   ps' = map (rotate center) ps
-            rotate (xo, yo) (xi, yi) = (yi-yo+xo, -(xi-xo)+yo)
+rotateFigure (ps, t) = case t of
+  'O' -> (ps, t)
+  'I' -> (ps', t)  
+    where ps' = rotatePoints center ps
+          [_,(x1,y1),(x2,y2),_] = ps
+          center  | x1 < x2 = ((x1+x2)/2, y1-0.5)
+                  | x1 > x2 = ((x1+x2)/2, y1+0.5)
+                  | y1 > y2 = (x1-0.5, (y1+y2)/2)
+                  | y1 < y2 = (x1+0.5, (y1+y2)/2)
+  t   -> (ps', t)
+    where ps' = center:(rotatePoints center rest)
+          (center:rest) = ps
+
+rotatePoints:: Point -> [Point] -> [Point]
+rotatePoints center ps = map (rotate center) ps
+  where rotate (xo,yo) (xi,yi) = (yi-yo+xo, -(xi-xo)+yo)
