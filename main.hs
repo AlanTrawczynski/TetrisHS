@@ -9,7 +9,6 @@ main = do
   let figs = randomRs (0, 7) g :: [Int]
   debugActivityOf (initTetris figs) manageEvent drawTetris
 
-type Time = Double
 
 type Tetris = ([Int], Figure, Playfield, Time)
 
@@ -19,9 +18,11 @@ type FigureType = Char
 -- Black -> Empty
 type Playfield = Matrix Color
 
+type Time = Double
+
 
 initTetris:: [Int] -> Tetris
-initTetris (f:figs) = (figs, spawnFigure f, playfield, 0)
+initTetris (f:figs) = (figs, generateFigure f, playfield, 0)
     where playfield = matrix 20 10 (\_ -> black)
 
 manageEvent:: Event -> Tetris -> Tetris
@@ -40,7 +41,7 @@ manageEvent (KeyPress t) (figs,figura,playfield,time) = (figs,nuevaFigura,playfi
 manageEvent _ state = state
 
 drawTetris:: Tetris -> Picture
-drawTetris (_, f, m,_) = center $ drawFigure f & drawPlayfield m
+drawTetris (_, f, m, _) = center $ drawFigure f & drawPlayfield m
   where center = translated (-nc'/2) (-nr'/2)
         nr' = fromIntegral $ nrows m
         nc' = fromIntegral $ ncols m
@@ -70,9 +71,22 @@ drawPoint (x, y) c = colored c (translated (x-0.5) (y-0.5) (solidRectangle 0.95 
 m !. (r,c) = getElem r' c m
   where r' = (nrows m) - r + 1
 
-spawnFigure:: Int -> Figure
-spawnFigure n = ([(4,4),(4,5),(3,5),(5,4)], 'Z') --provisional
+nextFigure:: [Int] -> (Figure, [Int])
+nextFigure (current:next:rest)
+  | current /= next && next /= 0 = (generateFigure next, rest)
+  | otherwise = reroll
+    where reroll = (generateFigure next', rest')
+          (next':rest') = dropWhile (==0) rest
 
+generateFigure:: Int -> Figure
+generateFigure n = case n of
+  1 -> ([(5,22),(6,22),(5,23),(6,23)], 'O')
+  2 -> ([(4,22),(5,22),(6,22),(7,22)], 'I')
+  3 -> ([(5,22),(4,22),(6,22),(6,23)], 'L')
+  4 -> ([(5,22),(4,22),(6,22),(4,23)], 'J')
+  5 -> ([(5,22),(4,22),(5,23),(6,23)], 'S')
+  6 -> ([(5,22),(6,22),(4,23),(5,23)], 'Z')
+  7 -> ([(5,22),(4,22),(6,22),(5,23)], 'T')
 
 rotateFigure:: Figure -> Figure
 rotateFigure (ps, t) = case t of
@@ -91,3 +105,4 @@ rotateFigure (ps, t) = case t of
 rotatePoints:: Point -> [Point] -> [Point]
 rotatePoints center ps = map (rotate center) ps
   where rotate (xo,yo) (xi,yi) = (yi-yo+xo, -(xi-xo)+yo)
+  
