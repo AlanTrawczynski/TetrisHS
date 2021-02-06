@@ -56,12 +56,12 @@ drawPlayfield:: Playfield -> Picture
 drawPlayfield pf = squares & bg
   where nr = nrows pf
         nc = ncols pf
-        squares = pictures [drawPoint p color | 
+        squares = pictures [drawPoint p c | 
                             row <- [1..nr], 
                             col <- [1..nc], 
                             let p = (fromIntegral col, fromIntegral row),
-                            let color = pf !. (row,col),
-                            color /= black]
+                            let c = pf !. p,
+                            c /= black]
         bg = colored black (translated ((nc'+1)/2) ((nr'+1)/2) (solidRectangle nc' nr'))
           where nc' = fromIntegral nc
                 nr' = fromIntegral nr
@@ -69,9 +69,10 @@ drawPlayfield pf = squares & bg
 drawPoint :: Point -> Color -> Picture
 drawPoint (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
 
-(!.) :: Matrix a -> (Int,Int) -> a
-m !. (r,c) = getElem r' c m
-  where r' = (nrows m) - r + 1
+(!.) :: Playfield -> Point -> Color
+pf !. (x,y) = getElem r c pf
+  where r = (nrows pf) - (round y) + 1
+        c = round x
 
 nextFigure:: [Int] -> (Figure, [Int])
 nextFigure (current:next:rest)
@@ -93,7 +94,7 @@ generateFigure n = case n of
 validPosition :: Figure -> Playfield -> Bool
 validPosition ([], _) _ = True
 validPosition ((x,y):ps, t) pf = doesNotExceed && doesNotCollide && validPosition (ps, t) pf
-  where doesNotCollide = y > 20 || (pf !. (round y, round x)) == black
+  where doesNotCollide = y > 20 || (pf !. (x,y)) == black
         doesNotExceed = (x >= 1) && (x <= nc') && (y >= 1)
           where nc' = fromIntegral $ ncols pf
 
@@ -124,14 +125,14 @@ moveRight st@(figs, f, pf, time)
 
 refresh :: Playfield -> Figure -> Playfield
 refresh pf ([], _)        = pf
-refresh pf ((x,y):ps, t)  = refresh pf' (ps, t)
-  where pf' = setElem' c (y',x') pf
+refresh pf (p:ps, t)  = refresh pf' (ps, t)
+  where pf' = setElem' c p pf
         c = red -- hay que definir un map (tipo figura, color) para usarlo de forma general
-        (x',y') = (round x, round y)
 
-setElem':: a -> (Int, Int) -> Matrix a -> Matrix a
-setElem' e (r,c) m = setElem e (r',c) m
-  where r' = (nrows m) - r + 1
+setElem':: Color -> Point -> Playfield -> Playfield
+setElem' color (x,y) pf = setElem color (r,c) pf
+  where r = (nrows pf) - (round y) + 1
+        c = round x
 
 rotateFigure:: Figure -> Figure
 rotateFigure (ps, t) = case t of
