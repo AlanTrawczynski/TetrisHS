@@ -1,156 +1,216 @@
 {-# LANGUAGE OverloadedStrings #-}
 import CodeWorld
 import System.Random (getStdGen, randomRs)
-import Data.Matrix 
+import Data.Matrix
 import Data.Text (pack)
 
-main:: IO ()
-main = do 
+main :: IO ()
+main = do
   g <- getStdGen
   let figs = randomRs (0, 7) g :: [Int]
   debugActivityOf (initTetris figs) manageEvent drawTetris
 
-type Time = Double
+
 type Tetris = ([Int], Figure, Playfield, Time)
 type Figure = ([Point], FigureType)
 type FigureType = Char
+type Playfield = Matrix Color -- Black -> Empty
+type Time = Double
 
--- Black -> Empty
-type Playfield = Matrix Color
 
-initTetris:: [Int] -> Tetris
-initTetris (f:figs) = (figs, generateFigure f, playfield, 0)
+-- Init
+-- ----------------------------------------------------------------------------------
+initTetris :: [Int] -> Tetris
+initTetris figs@(f:rest)
+  | f == 0    = initTetris rest
+  | otherwise = (figs, generateFigure f, playfield, 0)
     where playfield = matrix 20 10 (\_ -> black)
+-- ----------------------------------------------------------------------------------
 
-manageEvent:: Event -> Tetris -> Tetris
-manageEvent (TimePassing t) state@(figs,figura,playfield,time) 
-                    | time - 1 > 0 = moveDown state
-                    | otherwise = (figs,figura,playfield,time+t)
 
-manageEvent (KeyPress t) state@(figs,figura,playfield,time) = newState
-                    where newState = case t of 
-                                            "Up" -> (figs,rotateFigure figura,playfield,time)
-                                            "Down" -> moveDown state
-                                            "Left" -> moveLeft state
-                                            "Right" -> moveRight state
-                                            _ -> state
+-- Events
+-- ----------------------------------------------------------------------------------
+manageEvent :: Event -> Tetris -> Tetris
+manageEvent (TimePassing dt) st@(figs, f, pf, t)
+  | t > 1     = moveDown st
+  | otherwise = (figs, f, pf, t+dt)
+manageEvent (KeyPress k) st@(figs, f, pf, t) = case k of
+  "Up"    -> (figs, rotateFigure f, pf, t)
+  "Down"  -> moveDown st
+  "Left"  -> moveLeft st
+  "Right" -> moveRight st
+  _       -> st
+manageEvent _ st = st
+-- ----------------------------------------------------------------------------------
 
-manageEvent _ state = state
 
-drawTetris:: Tetris -> Picture
-drawTetris (_, f, m,_) = ftext & (center $ drawFigure f & drawPlayfield m & coordinatePlane)
-  where center = translated (-nc'/2) (-nr'/2)
-        nr' = fromIntegral $ nrows m
-        nc' = fromIntegral $ ncols m
-        ftext = colored green (lettering $ pack $ show $ fst f)
+-- Drawing
+-- ----------------------------------------------------------------------------------
+drawTetris :: Tetris -> Picture
+drawTetris (_, f, pf,_) = ftext & (center $ drawFigure f & drawPlayfield pf) & coordinatePlane
+  where center = id --translated ((-nc'-1)/2) ((-nr'-1)/2)
+        nr' = fromIntegral $ nrows pf
+        nc' = fromIntegral $ ncols pf
+        ftext = colored green (lettering $ pack $ show $ fst f) --temp
 
-drawFigure:: Figure -> Picture
+drawFigure :: Figure -> Picture
 drawFigure (ps, t) = pictures $ map (\p -> drawPoint p c) ps
-  where c = red -- caseOf con color por figura
+  where c = figuretypeColor t
 
-change :: Matrix a -> (Int,Int) -> (Int,Int)
-change m (r,c) = (r',c)
-  where r' = (nrows m) - r + 1
-
-drawPlayfield:: Playfield -> Picture
-drawPlayfield m = squares & bg
-  where nr = nrows m
-        nc = ncols m
-        squares = pictures [drawPoint p color | 
-                            row <- [1..nr], 
-                            col <- [1..nc], 
+drawPlayfield :: Playfield -> Picture
+drawPlayfield pf = squares & bg
+  where nr = nrows pf
+        nc = ncols pf
+        squares = pictures [drawPoint p c |
+                            row <- [1..nr],
+                            col <- [1..nc],
                             let p = (fromIntegral col, fromIntegral row),
-                            let color = m !. (row,col),
-                            color /= black]
-        bg = colored black (translated ((x+1)/2) ((y+1)/2) (solidRectangle x y))
-          where x = fromIntegral nc
-                y = fromIntegral nr
+                            let c = pf !. p,
+                            c /= black]
+        bg = colored black (translated ((nc'+1)/2) ((nr'+1)/2) (solidRectangle nc' nr'))
+          where nc' = fromIntegral nc
+                nr' = fromIntegral nr
 
 drawPoint :: Point -> Color -> Picture
 drawPoint (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
 
-(!.) :: Matrix a -> (Int,Int) -> a
-m !. (r,c) = getElem r' c m
-  where r' = (nrows m) - r + 1
+figuretypeColor :: FigureType -> Color
+figuretypeColor t = dull $ case t of
+  'O' -> yellow
+  'I' -> light blue
+  'L' -> orange
+  'J' -> blue
+  'S' -> red
+  'Z' -> green
+  'T' -> purple
+-- ----------------------------------------------------------------------------------
 
-nextFigure:: [Int] -> (Figure, [Int])
-nextFigure (current:next:rest)
-  | current /= next && next /= 0 = (generateFigure next, rest)
-  | otherwise = reroll
-    where reroll = (generateFigure next', rest')
-          (next':rest') = dropWhile (==0) rest
 
-generateFigure:: Int -> Figure
-generateFigure n = case n of
-  1 -> ([(5,19),(6,19),(5,20),(6,20)], 'O')
-  2 -> ([(4,20),(5,20),(6,20),(7,20)], 'I')
-  3 -> ([(5,19),(4,19),(6,19),(6,20)], 'L')
-  4 -> ([(5,19),(4,19),(6,19),(4,20)], 'J')
-  5 -> ([(5,19),(4,19),(5,20),(6,20)], 'S')
-  6 -> ([(5,19),(6,19),(4,20),(5,20)], 'Z')
-  7 -> ([(5,19),(4,19),(6,19),(5,20)], 'T')
-  _ -> ([(4,20),(5,20),(6,20),(7,20)], 'I')
--- x : columna en la que se encuentra la figura
--- y : fila en la que se encuentra la figura
-validPosition :: [Point] -> Playfield -> Bool
-validPosition [] _ = True
-validPosition ((x,y):ps) playfield = doesntExceedBoard && doesNotCollide && validPosition ps playfield
-                where n = nrows playfield
-                      m = ncols playfield
-                      doesntExceedBoard = (x >= 1) && (x <= fromIntegral m) && (y >= 1)
-                      doesNotCollide = playfield!.(floor y,floor x) == black
+-- Playfield
+-- ----------------------------------------------------------------------------------
+(!.) :: Playfield -> Point -> Color
+pf !. (x,y) = getElem r c pf
+  where r = (nrows pf) - (round y) + 1
+        c = round x
 
-moveDown :: Tetris -> Tetris
-moveDown state@(figs,figura@(ps,t),playfield,time) 
-                | validPosition ps' playfield = (figs,(ps',t),playfield,0)
-                | otherwise = (figs',newFig,playfield',0)
-                where bajar puntos = case puntos of 
-                                        [] -> []
-                                        ((n,m):puntos) -> (n,m-1):(bajar puntos)
-                      ps' = bajar ps
-                      (newFig,figs') = nextFigure figs
-                      playfield' = refresh playfield figura
+setElem' :: Color -> Point -> Playfield -> Playfield
+setElem' color (x,y) pf = setElem color (r,c) pf
+  where r = (nrows pf) - (round y) + 1
+        c = round x
 
-moveLeft :: Tetris -> Tetris
-moveLeft state@(figs,figura@(ps,t),playfield,time) 
-                | validPosition ps' playfield = (figs,(ps',t),playfield,time)
-                | otherwise = state
-                where izq puntos = case puntos of 
-                                        [] -> []
-                                        ((n,m):puntos) -> (n-1,m):(izq puntos)
-                      ps' = izq ps
- 
-moveRight :: Tetris -> Tetris
-moveRight state@(figs,figura@(ps,t),playfield,time) 
-                | validPosition ps' playfield = (figs,(ps',t),playfield,time)
-                | otherwise = state
-                where dcha puntos = case puntos of 
-                                        [] -> []
-                                        ((n,m):puntos) -> (n+1,m):(dcha puntos)
-                      ps' = dcha ps
+validPosition :: Figure -> Playfield -> Bool
+validPosition ([], _) _ = True
+validPosition ((x,y):ps, t) pf = doesNotExceed && doesNotCollide && validPosition (ps, t) pf
+  where doesNotCollide = y > 20 || (pf !. (x,y)) == black
+        doesNotExceed = (x >= 1) && (x <= nc') && (y >= 1)
+          where nc' = fromIntegral $ ncols pf
 
 refresh :: Playfield -> Figure -> Playfield
-refresh playfield fig@([],_) = playfield
-refresh playfield fig@((x,y):ps,t) = refresh (setElem (color t) pos playfield) (ps,t)
-                where color _ = red
-                      -- el punto (1,4) en el eje de coordenadas corresponde con el (4,1) en la matriz.
-                      pos = change playfield (floor y, floor x) 
+refresh pf ([], _)        = checkLines pf
+refresh pf (p:ps, t)  = refresh pf' (ps, t)
+  where pf' = setElem' c p pf
+        c = figuretypeColor t
 
-rotateFigure:: Figure -> Figure
+checkLines :: Playfield -> Playfield
+checkLines pf 
+  | null is = pf
+  | otherwise = newLines toAdd m <-> removeLines is pf 0
+  where is = fullLines pf -- lista de las filas a eliminar
+        toAdd = length is
+        m = ncols pf
+
+-- las líneas a introducir arriba de pf si procede. Serán tantas como eliminadas.
+newLines :: Int -> Int -> Playfield
+newLines n m = fromList n m xs
+  where xs = case n of 0 -> []
+                       _ -> take (n*m) $ repeat black 
+
+-- FullLines es la función encargada de obtener una lista de índices con las filas a borrar.
+fullLines :: Playfield -> [Int]
+fullLines pf = [ i | i <- [1..n], all (/= black) [ pf!(i,j) | j <- [1..m] ] ]
+  where n = nrows pf
+        m = ncols pf
+
+-- aux: almacena el número de filas removidas. Los índices a remover son índices de la matriz pf.
+-- no obstante el borrado se realiza de manera progresiva, si tenemos más de una fila a borrar,
+-- se borrarán uno detrás de otro. Esto significa que los índices no nos valdrán, hay que transformarlos.
+-- los índices que queden debajo de la fila borrada son i - aux.
+-- 1 1
+-- 2 1 <- si elimino esto, la fila 3 1 tendrá como índices 2 1.
+-- 3 1
+-- NOTA: La lista de índices a borrar está ordenada.
+
+removeLines :: [Int] -> Playfield -> Int -> Playfield
+removeLines [] pf aux = pf
+removeLines (i:is) pf aux 
+  | i' == 1 = removeLines is (submatrix (i'+1) (n) 1 m pf) (aux+1)
+  | i' == n = removeLines is (submatrix 1 (i'-1) 1 m pf) (aux+1)
+  | otherwise = removeLines is ((submatrix 1 (i'-1) 1 m pf) <-> (submatrix (i'+1) (n) 1 m pf)) (aux+1)
+  where m = ncols pf
+        n = nrows pf
+        i' = i - aux
+
+moveDown :: Tetris -> Tetris
+moveDown (figs, f, pf, _)
+  | validPosition mf pf = (figs,  mf, pf,   0)
+  | otherwise           = (figs', nf, pf',  0)
+  where mf = moveFigure f 0 (-1)
+        (nf, figs') = nextFigure figs
+        pf' = refresh pf f
+
+moveLeft :: Tetris -> Tetris
+moveLeft st@(figs, f, pf, time)
+  | validPosition mf pf = (figs, mf, pf, time)
+  | otherwise = st
+  where mf = moveFigure f (-1) 0
+
+moveRight :: Tetris -> Tetris
+moveRight st@(figs, f, pf, time)
+  | validPosition mf pf = (figs, mf, pf, time)
+  | otherwise = st
+  where mf = moveFigure f 1 0
+
+moveFigure :: Figure -> Double -> Double -> Figure
+moveFigure (ps, t) dx dy = (move ps, t)
+  where move [] = []
+        move ((x,y):r) = (x+dx, y+dy):(move r)
+-- ----------------------------------------------------------------------------------
+
+
+-- Figure
+-- ----------------------------------------------------------------------------------
+nextFigure :: [Int] -> (Figure, [Int])
+nextFigure (current:next:rest)
+  | current /= next && next /= 0 = (generateFigure next, next:rest)
+  | otherwise = reroll
+    where reroll = (generateFigure next', next':rest')
+          (next':rest') = dropWhile (==0) rest
+
+generateFigure :: Int -> Figure
+generateFigure n = case n of
+  1 -> ([(5,22),(6,22),(5,23),(6,23)], 'O')
+  2 -> ([(4,22),(5,22),(6,22),(7,22)], 'I')
+  3 -> ([(5,22),(4,22),(6,22),(6,23)], 'L')
+  4 -> ([(5,22),(4,22),(6,22),(4,23)], 'J')
+  5 -> ([(5,22),(4,22),(5,23),(6,23)], 'S')
+  6 -> ([(5,22),(6,22),(4,23),(5,23)], 'Z')
+  7 -> ([(5,22),(4,22),(6,22),(5,23)], 'T')
+
+rotateFigure :: Figure -> Figure
 rotateFigure (ps, t) = case t of
   'O' -> (ps, t)
-  'I' -> (ps', t)  
+  'I' -> (ps', t)
     where ps' = rotatePoints center ps
           [_,(x1,y1),(x2,y2),_] = ps
           center  | x1 < x2 = ((x1+x2)/2, y1-0.5)
                   | x1 > x2 = ((x1+x2)/2, y1+0.5)
                   | y1 > y2 = (x1-0.5, (y1+y2)/2)
                   | y1 < y2 = (x1+0.5, (y1+y2)/2)
-  t -> (ps', t)
+  t   -> (ps', t)
     where ps' = center:(rotatePoints center rest)
           (center:rest) = ps
 
-rotatePoints:: Point -> [Point] -> [Point]
+rotatePoints :: Point -> [Point] -> [Point]
 rotatePoints center ps = map (rotate center) ps
   where rotate (xo,yo) (xi,yi) = (yi-yo+xo, -(xi-xo)+yo)
-  
+-- ----------------------------------------------------------------------------------
