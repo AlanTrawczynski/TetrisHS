@@ -106,10 +106,49 @@ validPosition ((x,y):ps, t) pf = doesNotExceed && doesNotCollide && validPositio
           where nc' = fromIntegral $ ncols pf
 
 refresh :: Playfield -> Figure -> Playfield
-refresh pf ([], _)        = pf
+refresh pf ([], _)        = checkLines pf
 refresh pf (p:ps, t)  = refresh pf' (ps, t)
   where pf' = setElem' c p pf
         c = figuretypeColor t
+
+checkLines :: Playfield -> Playfield
+checkLines pf 
+  | null is = pf
+  | otherwise = newLines toAdd m <-> removeLines is pf 0
+  where is = fullLines pf -- lista de las filas a eliminar
+        toAdd = length is
+        m = ncols pf
+
+-- las líneas a introducir arriba de pf si procede. Serán tantas como eliminadas.
+newLines :: Int -> Int -> Playfield
+newLines n m = fromList n m xs
+  where xs = case n of 0 -> []
+                       _ -> take (n*m) $ repeat black 
+
+-- FullLines es la función encargada de obtener una lista de índices con las filas a borrar.
+fullLines :: Playfield -> [Int]
+fullLines pf = [ i | i <- [1..n], all (/= black) [ pf!(i,j) | j <- [1..m] ] ]
+  where n = nrows pf
+        m = ncols pf
+
+-- aux: almacena el número de filas removidas. Los índices a remover son índices de la matriz pf.
+-- no obstante el borrado se realiza de manera progresiva, si tenemos más de una fila a borrar,
+-- se borrarán uno detrás de otro. Esto significa que los índices no nos valdrán, hay que transformarlos.
+-- los índices que queden debajo de la fila borrada son i - aux.
+-- 1 1
+-- 2 1 <- si elimino esto, la fila 3 1 tendrá como índices 2 1.
+-- 3 1
+-- NOTA: La lista de índices a borrar está ordenada.
+
+removeLines :: [Int] -> Playfield -> Int -> Playfield
+removeLines [] pf aux = pf
+removeLines (i:is) pf aux 
+  | i' == 1 = removeLines is (submatrix (i'+1) (n) 1 m pf) (aux+1)
+  | i' == n = removeLines is (submatrix 1 (i'-1) 1 m pf) (aux+1)
+  | otherwise = removeLines is ((submatrix 1 (i'-1) 1 m pf) <-> (submatrix (i'+1) (n) 1 m pf)) (aux+1)
+  where m = ncols pf
+        n = nrows pf
+        i' = i - aux
 
 moveDown :: Tetris -> Tetris
 moveDown (figs, f, pf, _)
