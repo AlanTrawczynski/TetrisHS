@@ -35,7 +35,7 @@ manageEvent (TimePassing dt) st@(figs, f, pf, t)
   | t > 1     = moveDown st
   | otherwise = (figs, f, pf, t+dt)
 manageEvent (KeyPress k) st@(figs, f, pf, t) = case k of
-  "Up"    -> (figs, rotateFigure f, pf, t)
+  "Up"    -> rotateFigure st
   "Down"  -> moveDown st
   "Left"  -> moveLeft st
   "Right" -> moveRight st
@@ -106,13 +106,13 @@ validPosition ((x,y):ps, t) pf = doesNotExceed && doesNotCollide && validPositio
           where nc' = fromIntegral $ ncols pf
 
 refresh :: Playfield -> Figure -> Playfield
-refresh pf ([], _)        = checkLines pf
+refresh pf ([], _)    = checkLines pf
 refresh pf (p:ps, t)  = refresh pf' (ps, t)
   where pf' = setElem' c p pf
         c = figuretypeColor t
 
 checkLines :: Playfield -> Playfield
-checkLines pf 
+checkLines pf
   | null is = pf
   | otherwise = newLines toAdd m <-> removeLines is pf 0
   where is = fullLines pf -- lista de las filas a eliminar
@@ -123,7 +123,7 @@ checkLines pf
 newLines :: Int -> Int -> Playfield
 newLines n m = fromList n m xs
   where xs = case n of 0 -> []
-                       _ -> take (n*m) $ repeat black 
+                       _ -> take (n*m) $ repeat black
 
 -- FullLines es la función encargada de obtener una lista de índices con las filas a borrar.
 fullLines :: Playfield -> [Int]
@@ -142,7 +142,7 @@ fullLines pf = [ i | i <- [1..n], all (/= black) [ pf!(i,j) | j <- [1..m] ] ]
 
 removeLines :: [Int] -> Playfield -> Int -> Playfield
 removeLines [] pf aux = pf
-removeLines (i:is) pf aux 
+removeLines (i:is) pf aux
   | i' == 1 = removeLines is (submatrix (i'+1) (n) 1 m pf) (aux+1)
   | i' == n = removeLines is (submatrix 1 (i'-1) 1 m pf) (aux+1)
   | otherwise = removeLines is ((submatrix 1 (i'-1) 1 m pf) <-> (submatrix (i'+1) (n) 1 m pf)) (aux+1)
@@ -196,8 +196,20 @@ generateFigure n = case n of
   6 -> ([(5,22),(6,22),(4,23),(5,23)], 'Z')
   7 -> ([(5,22),(4,22),(6,22),(5,23)], 'T')
 
-rotateFigure :: Figure -> Figure
-rotateFigure (ps, t) = case t of
+rotateFigure :: Tetris -> Tetris
+rotateFigure st@(figs, f, pf, t) = case maybef' of
+  Nothing -> st
+  Just f' -> (figs, f', pf, t)
+  where maybef' = safeHead $ filter (\f -> validPosition f pf) (map (\mv -> mv rf) mvs)
+        rf = rotateFigure' f
+        mvs = [ \x -> moveFigure x 0    0,
+                \x -> moveFigure x 1    0,
+                \x -> moveFigure x (-1) 0,
+                \x -> moveFigure x 2    0,
+                \x -> moveFigure x (-2) 0]
+
+rotateFigure' :: Figure -> Figure
+rotateFigure' (ps, t) = case t of
   'O' -> (ps, t)
   'I' -> (ps', t)
     where ps' = rotatePoints center ps
@@ -213,4 +225,12 @@ rotateFigure (ps, t) = case t of
 rotatePoints :: Point -> [Point] -> [Point]
 rotatePoints center ps = map (rotate center) ps
   where rotate (xo,yo) (xi,yi) = (yi-yo+xo, -(xi-xo)+yo)
+-- ----------------------------------------------------------------------------------
+
+
+-- Utils
+-- ----------------------------------------------------------------------------------
+safeHead:: [a] -> Maybe a
+safeHead [] = Nothing
+safeHead l = Just $ head l
 -- ----------------------------------------------------------------------------------
