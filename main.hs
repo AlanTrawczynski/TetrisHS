@@ -10,18 +10,26 @@ main = do
   let figs = randomRs (0, 7) g :: [Int]
   debugActivityOf (initTetris figs) manageEvent drawTetris
 
-type Time = Double
+
 type Tetris = ([Int], Figure, Playfield, Time)
 type Figure = ([Point], FigureType)
 type FigureType = Char
 type Playfield = Matrix Color -- Black -> Empty
+type Time = Double
 
+
+-- Init
+-- ----------------------------------------------------------------------------------
 initTetris:: [Int] -> Tetris
 initTetris figs@(f:rest)
   | f == 0    = initTetris rest
   | otherwise = (figs, generateFigure f, playfield, 0)
     where playfield = matrix 20 10 (\_ -> black)
+-- ----------------------------------------------------------------------------------
 
+
+-- Events
+-- ----------------------------------------------------------------------------------
 manageEvent:: Event -> Tetris -> Tetris
 manageEvent (TimePassing dt) st@(figs, f, pf, t) 
   | t > 1     = moveDown st
@@ -33,7 +41,11 @@ manageEvent (KeyPress k) st@(figs, f, pf, t) = case k of
   "Right" -> moveRight st
   _       -> st
 manageEvent _ st = st
+-- ----------------------------------------------------------------------------------
 
+
+-- Drawing
+-- ----------------------------------------------------------------------------------
 drawTetris:: Tetris -> Picture
 drawTetris (_, f, pf,_) = ftext & (center $ drawFigure f & drawPlayfield pf) & coordinatePlane
   where center = id --translated ((-nc'-1)/2) ((-nr'-1)/2)
@@ -68,29 +80,21 @@ drawPlayfield pf = squares & bg
 
 drawPoint :: Point -> Color -> Picture
 drawPoint (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
+-- ----------------------------------------------------------------------------------
 
+
+-- Playfield
+-- ----------------------------------------------------------------------------------
 (!.) :: Playfield -> Point -> Color
 pf !. (x,y) = getElem r c pf
   where r = (nrows pf) - (round y) + 1
-        c = round x
+        c = round x       
 
-nextFigure:: [Int] -> (Figure, [Int])
-nextFigure (current:next:rest)
-  | current /= next && next /= 0 = (generateFigure next, next:rest)
-  | otherwise = reroll
-    where reroll = (generateFigure next', next':rest')
-          (next':rest') = dropWhile (==0) rest
+setElem':: Color -> Point -> Playfield -> Playfield
+setElem' color (x,y) pf = setElem color (r,c) pf
+  where r = (nrows pf) - (round y) + 1
+        c = round x  
 
-generateFigure:: Int -> Figure
-generateFigure n = case n of
-  1 -> ([(5,22),(6,22),(5,23),(6,23)], 'O')
-  2 -> ([(4,22),(5,22),(6,22),(7,22)], 'I')
-  3 -> ([(5,22),(4,22),(6,22),(6,23)], 'L')
-  4 -> ([(5,22),(4,22),(6,22),(4,23)], 'J')
-  5 -> ([(5,22),(4,22),(5,23),(6,23)], 'S')
-  6 -> ([(5,22),(6,22),(4,23),(5,23)], 'Z')
-  7 -> ([(5,22),(4,22),(6,22),(5,23)], 'T')
-  
 validPosition :: Figure -> Playfield -> Bool
 validPosition ([], _) _ = True
 validPosition ((x,y):ps, t) pf = doesNotExceed && doesNotCollide && validPosition (ps, t) pf
@@ -98,10 +102,11 @@ validPosition ((x,y):ps, t) pf = doesNotExceed && doesNotCollide && validPositio
         doesNotExceed = (x >= 1) && (x <= nc') && (y >= 1)
           where nc' = fromIntegral $ ncols pf
 
-moveFigure:: Figure -> Double -> Double -> Figure
-moveFigure (ps, t) dx dy = (move ps, t)
-  where move [] = []
-        move ((x,y):r) = (x+dx, y+dy):(move r)            
+refresh :: Playfield -> Figure -> Playfield
+refresh pf ([], _)        = pf
+refresh pf (p:ps, t)  = refresh pf' (ps, t)
+  where pf' = setElem' c p pf
+        c = red -- hay que definir un map (tipo figura, color) para usarlo de forma general
 
 moveDown :: Tetris -> Tetris
 moveDown (figs, f, pf, _)
@@ -123,16 +128,31 @@ moveRight st@(figs, f, pf, time)
   | otherwise = st
   where mf = moveFigure f 1 0
 
-refresh :: Playfield -> Figure -> Playfield
-refresh pf ([], _)        = pf
-refresh pf (p:ps, t)  = refresh pf' (ps, t)
-  where pf' = setElem' c p pf
-        c = red -- hay que definir un map (tipo figura, color) para usarlo de forma general
+moveFigure:: Figure -> Double -> Double -> Figure
+moveFigure (ps, t) dx dy = (move ps, t)
+  where move [] = []
+        move ((x,y):r) = (x+dx, y+dy):(move r)   
+-- ----------------------------------------------------------------------------------
 
-setElem':: Color -> Point -> Playfield -> Playfield
-setElem' color (x,y) pf = setElem color (r,c) pf
-  where r = (nrows pf) - (round y) + 1
-        c = round x
+
+-- Figure
+-- ----------------------------------------------------------------------------------
+nextFigure:: [Int] -> (Figure, [Int])
+nextFigure (current:next:rest)
+  | current /= next && next /= 0 = (generateFigure next, next:rest)
+  | otherwise = reroll
+    where reroll = (generateFigure next', next':rest')
+          (next':rest') = dropWhile (==0) rest
+
+generateFigure:: Int -> Figure
+generateFigure n = case n of
+  1 -> ([(5,22),(6,22),(5,23),(6,23)], 'O')
+  2 -> ([(4,22),(5,22),(6,22),(7,22)], 'I')
+  3 -> ([(5,22),(4,22),(6,22),(6,23)], 'L')
+  4 -> ([(5,22),(4,22),(6,22),(4,23)], 'J')
+  5 -> ([(5,22),(4,22),(5,23),(6,23)], 'S')
+  6 -> ([(5,22),(6,22),(4,23),(5,23)], 'Z')
+  7 -> ([(5,22),(4,22),(6,22),(5,23)], 'T')
 
 rotateFigure:: Figure -> Figure
 rotateFigure (ps, t) = case t of
@@ -151,4 +171,4 @@ rotateFigure (ps, t) = case t of
 rotatePoints:: Point -> [Point] -> [Point]
 rotatePoints center ps = map (rotate center) ps
   where rotate (xo,yo) (xi,yi) = (yi-yo+xo, -(xi-xo)+yo)
-  
+-- ----------------------------------------------------------------------------------
