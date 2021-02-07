@@ -7,7 +7,7 @@ import Data.Text (pack)
 main :: IO ()
 main = do
   g <- getStdGen
-  let figs = randomRs (0, 7) g :: [Int]
+  let figs = randomRs (1, 7) g :: [Int]
   debugActivityOf (initTetris figs) manageEvent drawTetris
 
 
@@ -35,7 +35,7 @@ manageEvent (TimePassing dt) st@(figs, f, pf, t)
   | t > 1     = moveDown st
   | otherwise = (figs, f, pf, t+dt)
 manageEvent (KeyPress k) st@(figs, f, pf, t) = case k of
-  "Up"    -> (figs, rotateFigure f, pf, t)
+  "Up"    -> rotateFigure st
   "Down"  -> moveDown st
   "Left"  -> moveLeft st
   "Right" -> moveRight st
@@ -105,31 +105,29 @@ validPosition ((x,y):ps, t) pf = doesNotExceed && doesNotCollide && validPositio
         doesNotExceed = (x >= 1) && (x <= nc') && (y >= 1)
           where nc' = fromIntegral $ ncols pf
 
-refresh :: Playfield -> Figure -> Playfield
-refresh pf ([], _)        = checkLines pf
-refresh pf (p:ps, t)  = refresh pf' (ps, t)
+updatePlayfield :: Playfield -> Figure -> Playfield
+updatePlayfield pf ([], _)    = removeFullRows pf
+updatePlayfield pf (p:ps, t)  = updatePlayfield pf' (ps, t)
   where pf' = setElem' c p pf
         c = figuretypeColor t
 
-checkLines :: Playfield -> Playfield
-checkLines pf 
-  | null is = pf
-  | otherwise = newLines toAdd m <-> removeLines is pf 0
-  where is = fullLines pf -- lista de las filas a eliminar
+removeFullRows :: Playfield -> Playfield
+removeFullRows pf
+  | null is   = pf
+  | otherwise = newRows toAdd nc <-> removeRows is pf
+  where is = fullRows pf -- lista de las filas a eliminar
         toAdd = length is
-        m = ncols pf
+        nc = ncols pf
 
 -- las líneas a introducir arriba de pf si procede. Serán tantas como eliminadas.
-newLines :: Int -> Int -> Playfield
-newLines n m = fromList n m xs
-  where xs = case n of 0 -> []
-                       _ -> take (n*m) $ repeat black 
+newRows :: Int -> Int -> Playfield
+newRows nr nc = matrix nr nc (\_ -> black)
 
--- FullLines es la función encargada de obtener una lista de índices con las filas a borrar.
-fullLines :: Playfield -> [Int]
-fullLines pf = [ i | i <- [1..n], all (/= black) [ pf!(i,j) | j <- [1..m] ] ]
-  where n = nrows pf
-        m = ncols pf
+-- fullRows es la función encargada de obtener una lista de índices con las filas a borrar.
+fullRows :: Playfield -> [Int]
+fullRows pf = [row | 
+                (row, colors) <- zip [1..] (toLists pf), 
+                all (/= black) colors]
 
 -- aux: almacena el número de filas removidas. Los índices a remover son índices de la matriz pf.
 -- no obstante el borrado se realiza de manera progresiva, si tenemos más de una fila a borrar,
@@ -140,15 +138,11 @@ fullLines pf = [ i | i <- [1..n], all (/= black) [ pf!(i,j) | j <- [1..m] ] ]
 -- 3 1
 -- NOTA: La lista de índices a borrar está ordenada.
 
-removeLines :: [Int] -> Playfield -> Int -> Playfield
-removeLines [] pf aux = pf
-removeLines (i:is) pf aux 
-  | i' == 1 = removeLines is (submatrix (i'+1) (n) 1 m pf) (aux+1)
-  | i' == n = removeLines is (submatrix 1 (i'-1) 1 m pf) (aux+1)
-  | otherwise = removeLines is ((submatrix 1 (i'-1) 1 m pf) <-> (submatrix (i'+1) (n) 1 m pf)) (aux+1)
-  where m = ncols pf
-        n = nrows pf
-        i' = i - aux
+removeRows :: [Int] -> Playfield -> Playfield
+removeRows [] pf = pf
+removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem i toRemove]
+  where nr = nrows pf
+        pfList = toLists pf
 
 moveDown :: Tetris -> Tetris
 moveDown (figs, f, pf, _)
@@ -156,7 +150,7 @@ moveDown (figs, f, pf, _)
   | otherwise           = (figs', nf, pf',  0)
   where mf = moveFigure f 0 (-1)
         (nf, figs') = nextFigure figs
-        pf' = refresh pf f
+        pf' = updatePlayfield pf f
 
 moveLeft :: Tetris -> Tetris
 moveLeft st@(figs, f, pf, time)
@@ -180,11 +174,9 @@ moveFigure (ps, t) dx dy = (move ps, t)
 -- Figure
 -- ----------------------------------------------------------------------------------
 nextFigure :: [Int] -> (Figure, [Int])
-nextFigure (current:next:rest)
-  | current /= next && next /= 0 = (generateFigure next, next:rest)
-  | otherwise = reroll
-    where reroll = (generateFigure next', next':rest')
-          (next':rest') = dropWhile (==0) rest
+nextFigure (current:next:next2:rest)
+  | current /= next = (generateFigure next, next:rest)
+  | otherwise       = (generateFigure next2, next2:rest)
 
 generateFigure :: Int -> Figure
 generateFigure n = case n of
@@ -196,8 +188,20 @@ generateFigure n = case n of
   6 -> ([(5,22),(6,22),(4,23),(5,23)], 'Z')
   7 -> ([(5,22),(4,22),(6,22),(5,23)], 'T')
 
-rotateFigure :: Figure -> Figure
-rotateFigure (ps, t) = case t of
+rotateFigure :: Tetris -> Tetris
+rotateFigure st@(figs, f, pf, t) = case maybef' of
+  Nothing -> st
+  Just f' -> (figs, f', pf, t)
+  where maybef' = safeHead $ filter (\f -> validPosition f pf) (map ($rf) mvs)
+        rf = rotateFigure' f
+        mvs = [ \x -> moveFigure x 0    0,
+                \x -> moveFigure x 1    0,
+                \x -> moveFigure x (-1) 0,
+                \x -> moveFigure x 2    0,
+                \x -> moveFigure x (-2) 0]
+
+rotateFigure' :: Figure -> Figure
+rotateFigure' (ps, t) = case t of
   'O' -> (ps, t)
   'I' -> (ps', t)
     where ps' = rotatePoints center ps
@@ -213,4 +217,12 @@ rotateFigure (ps, t) = case t of
 rotatePoints :: Point -> [Point] -> [Point]
 rotatePoints center ps = map (rotate center) ps
   where rotate (xo,yo) (xi,yi) = (yi-yo+xo, -(xi-xo)+yo)
+-- ----------------------------------------------------------------------------------
+
+
+-- Utils
+-- ----------------------------------------------------------------------------------
+safeHead:: [a] -> Maybe a
+safeHead [] = Nothing
+safeHead l = Just $ head l
 -- ----------------------------------------------------------------------------------
