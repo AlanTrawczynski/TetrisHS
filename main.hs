@@ -114,7 +114,7 @@ updatePlayfield pf (p:ps, t)  = updatePlayfield pf' (ps, t)
 removeFullRows :: Playfield -> Playfield
 removeFullRows pf
   | null is   = pf
-  | otherwise = newRows toAdd nc <-> removeRows is pf 0
+  | otherwise = newRows toAdd nc <-> removeRows is pf
   where is = fullRows pf -- lista de las filas a eliminar
         toAdd = length is
         nc = ncols pf
@@ -137,15 +137,12 @@ fullRows pf = [row |
 -- 2 1 <- si elimino esto, la fila 3 1 tendrá como índices 2 1.
 -- 3 1
 -- NOTA: La lista de índices a borrar está ordenada.
-removeRows :: [Int] -> Playfield -> Int -> Playfield
-removeRows [] pf aux = pf
-removeRows (i:is) pf aux
-  | i' == 1   = removeRows is (submatrix (i'+1) (nr) 1 nc pf) (aux+1)
-  | i' == nr  = removeRows is (submatrix 1 (i'-1) 1 nc pf) (aux+1)
-  | otherwise = removeRows is ((submatrix 1 (i'-1) 1 nc pf) <-> (submatrix (i'+1) (nr) 1 nc pf)) (aux+1)
-  where nc = ncols pf
-        nr = nrows pf
-        i' = i - aux
+
+removeRows :: [Int] -> Playfield -> Playfield
+removeRows [] pf = pf
+removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem i toRemove]
+  where nr = nrows pf
+        pfList = toLists pf
 
 moveDown :: Tetris -> Tetris
 moveDown (figs, f, pf, _)
