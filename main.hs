@@ -7,7 +7,7 @@ import Data.Text (pack)
 main :: IO ()
 main = do
   g <- getStdGen
-  let figs = randomRs (0, 7) g :: [Int]
+  let figs = randomRs (1, 7) g :: [Int]
   debugActivityOf (initTetris figs) manageEvent drawTetris
 
 
@@ -180,11 +180,9 @@ moveFigure (ps, t) dx dy = (move ps, t)
 -- Figure
 -- ----------------------------------------------------------------------------------
 nextFigure :: [Int] -> (Figure, [Int])
-nextFigure (current:next:rest)
-  | current /= next && next /= 0 = (generateFigure next, next:rest)
-  | otherwise = reroll
-    where reroll = (generateFigure next', next':rest')
-          (next':rest') = dropWhile (==0) rest
+nextFigure (current:next:next2:rest)
+  | current /= next = (generateFigure next, next:rest)
+  | otherwise       = (generateFigure next2, next2:rest)
 
 generateFigure :: Int -> Figure
 generateFigure n = case n of
@@ -200,7 +198,7 @@ rotateFigure :: Tetris -> Tetris
 rotateFigure st@(figs, f, pf, t) = case maybef' of
   Nothing -> st
   Just f' -> (figs, f', pf, t)
-  where maybef' = safeHead $ filter (\f -> validPosition f pf) (map (\mv -> mv rf) mvs)
+  where maybef' = safeHead $ filter (\f -> validPosition f pf) (map ($rf) mvs)
         rf = rotateFigure' f
         mvs = [ \x -> moveFigure x 0    0,
                 \x -> moveFigure x 1    0,
