@@ -7,23 +7,28 @@ import Data.Text (pack)
 main :: IO ()
 main = do
   g <- getStdGen
-  let figs = randomRs (1, 7) g :: [Int]
-  debugActivityOf (initTetris figs) manageEvent drawTetris
+  let fgen = randomRs (1, 7) g :: FigureGenerator
+  debugActivityOf (initTetris fgen) manageEvent drawTetris
 
 
-type Tetris = ([Int], Figure, Playfield, Time)
+type Tetris = (FigureGenerator, Figure, Playfield, Time, DefaultClock, Clock, Score, State)
+type FigureGenerator = [Int]
 type Figure = ([Point], FigureType)
 type FigureType = Char
-type Playfield = Matrix Color -- Black -> Empty
+type Playfield = Matrix Color
 type Time = Double
+type DefaultClock = Double
+type Clock = Double
+type Score = Int
+data State = Normal | Pause | GameOver
 
 
 -- Init
 -- ----------------------------------------------------------------------------------
-initTetris :: [Int] -> Tetris
-initTetris figs@(f:rest)
+initTetris :: FigureGenerator -> Tetris
+initTetris fgen@(f:rest)
   | f == 0    = initTetris rest
-  | otherwise = (figs, generateFigure f, playfield, 0)
+  | otherwise = (fgen, generateFigure f, playfield, 0, 1, 1, 0, Normal)
     where playfield = matrix 20 10 (\_ -> black)
 -- ----------------------------------------------------------------------------------
 
@@ -31,31 +36,31 @@ initTetris figs@(f:rest)
 -- Events
 -- ----------------------------------------------------------------------------------
 manageEvent :: Event -> Tetris -> Tetris
-manageEvent (TimePassing dt) st@(figs, f, pf, t)
-  | t > 1     = moveDown st
-  | otherwise = (figs, f, pf, t+dt)
-manageEvent (KeyPress k) st@(figs, f, pf, t) = case k of
-  "Up"    -> rotateFigure st
-  "Down"  -> moveDown st
-  "Left"  -> moveLeft st
-  "Right" -> moveRight st
-  _       -> st
-manageEvent _ st = st
+manageEvent (TimePassing dt) tetris@(fgen, f, pf, t, dclk, clk, sc, st)
+  | clk < 0   = moveDown tetris
+  | otherwise = (fgen, f, pf, t+dt, dclk, clk-dt, sc, st)
+manageEvent (KeyPress k) tetris = case k of
+  "Up"    -> rotateFigure tetris
+  "Down"  -> moveDown tetris
+  "Left"  -> moveLeft tetris
+  "Right" -> moveRight tetris
+  _       -> tetris
+manageEvent _ tetris = tetris
 -- ----------------------------------------------------------------------------------
 
 
 -- Drawing
 -- ----------------------------------------------------------------------------------
 drawTetris :: Tetris -> Picture
-drawTetris (_, f, pf,_) = ftext & (center $ drawFigure f & drawPlayfield pf) & coordinatePlane
+drawTetris (_,f,pf,_,_,_,_,_) = ftext & (center $ drawFigure f & drawPlayfield pf) & coordinatePlane
   where center = id --translated ((-nc'-1)/2) ((-nr'-1)/2)
         nr' = fromIntegral $ nrows pf
         nc' = fromIntegral $ ncols pf
         ftext = colored green (lettering $ pack $ show $ fst f) --temp
 
 drawFigure :: Figure -> Picture
-drawFigure (ps, t) = pictures $ map (\p -> drawPoint p c) ps
-  where c = figuretypeColor t
+drawFigure (ps, ft) = pictures $ map (\p -> drawPoint p c) ps
+  where c = figuretypeColor ft
 
 drawPlayfield :: Playfield -> Picture
 drawPlayfield pf = squares & bg
@@ -75,7 +80,7 @@ drawPoint :: Point -> Color -> Picture
 drawPoint (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
 
 figuretypeColor :: FigureType -> Color
-figuretypeColor t = dull $ case t of
+figuretypeColor ft = dull $ case ft of
   'O' -> yellow
   'I' -> light blue
   'L' -> orange
@@ -100,16 +105,16 @@ setElem' color (x,y) pf = setElem color (r,c) pf
 
 validPosition :: Figure -> Playfield -> Bool
 validPosition ([], _) _ = True
-validPosition ((x,y):ps, t) pf = doesNotExceed && doesNotCollide && validPosition (ps, t) pf
+validPosition ((x,y):ps, ft) pf = doesNotExceed && doesNotCollide && validPosition (ps, ft) pf
   where doesNotCollide = y > 20 || (pf !. (x,y)) == black
         doesNotExceed = (x >= 1) && (x <= nc') && (y >= 1)
           where nc' = fromIntegral $ ncols pf
 
 updatePlayfield :: Playfield -> Figure -> Playfield
 updatePlayfield pf ([], _)    = removeFullRows pf
-updatePlayfield pf (p:ps, t)  = updatePlayfield pf' (ps, t)
+updatePlayfield pf (p:ps, ft)  = updatePlayfield pf' (ps, ft)
   where pf' = setElem' c p pf
-        c = figuretypeColor t
+        c = figuretypeColor ft
 
 removeFullRows :: Playfield -> Playfield
 removeFullRows pf
@@ -145,27 +150,28 @@ removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem
         pfList = toLists pf
 
 moveDown :: Tetris -> Tetris
-moveDown (figs, f, pf, _)
-  | validPosition mf pf = (figs,  mf, pf,   0)
-  | otherwise           = (figs', nf, pf',  0)
+moveDown (fgen, f, pf, t, dclk, clk, sc, st)
+  | validPosition mf pf = (fgen,  mf, pf,   t, dclk,  dclk, sc, st)
+  | otherwise           = (fgen', nf, pf',  t, dclk', dclk, sc, st)
   where mf = moveFigure f 0 (-1)
-        (nf, figs') = nextFigure figs
+        (nf, fgen') = nextFigure fgen
         pf' = updatePlayfield pf f
+        dclk' = max (dclk - 0.01) 0.15
 
 moveLeft :: Tetris -> Tetris
-moveLeft st@(figs, f, pf, time)
-  | validPosition mf pf = (figs, mf, pf, time)
-  | otherwise = st
+moveLeft tetris@(fgen, f, pf, t, dclk, clk, sc, st)
+  | validPosition mf pf = (fgen, mf, pf, t, dclk, clk, sc, st)
+  | otherwise = tetris
   where mf = moveFigure f (-1) 0
 
 moveRight :: Tetris -> Tetris
-moveRight st@(figs, f, pf, time)
-  | validPosition mf pf = (figs, mf, pf, time)
-  | otherwise = st
+moveRight tetris@(fgen, f, pf, t, dclk, clk, sc, st)
+  | validPosition mf pf = (fgen, mf, pf, t, dclk, clk, sc, st)
+  | otherwise = tetris
   where mf = moveFigure f 1 0
 
 moveFigure :: Figure -> Double -> Double -> Figure
-moveFigure (ps, t) dx dy = (move ps, t)
+moveFigure (ps, ft) dx dy = (move ps, ft)
   where move [] = []
         move ((x,y):r) = (x+dx, y+dy):(move r)
 -- ----------------------------------------------------------------------------------
@@ -173,7 +179,7 @@ moveFigure (ps, t) dx dy = (move ps, t)
 
 -- Figure
 -- ----------------------------------------------------------------------------------
-nextFigure :: [Int] -> (Figure, [Int])
+nextFigure :: FigureGenerator -> (Figure, FigureGenerator)
 nextFigure (current:next:next2:rest)
   | current /= next = (generateFigure next, next:rest)
   | otherwise       = (generateFigure next2, next2:rest)
@@ -189,9 +195,9 @@ generateFigure n = case n of
   7 -> ([(5,22),(4,22),(6,22),(5,23)], 'T')
 
 rotateFigure :: Tetris -> Tetris
-rotateFigure st@(figs, f, pf, t) = case maybef' of
-  Nothing -> st
-  Just f' -> (figs, f', pf, t)
+rotateFigure tetris@(fgen, f, pf, t, dclk, clk, sc, st) = case maybef' of
+  Nothing -> tetris
+  Just f' -> (fgen, f', pf, t, dclk, clk, sc, st)
   where maybef' = safeHead $ filter (\f -> validPosition f pf) (map ($rf) mvs)
         rf = rotateFigure' f
         mvs = [ \x -> moveFigure x 0    0,
@@ -201,16 +207,16 @@ rotateFigure st@(figs, f, pf, t) = case maybef' of
                 \x -> moveFigure x (-2) 0]
 
 rotateFigure' :: Figure -> Figure
-rotateFigure' (ps, t) = case t of
-  'O' -> (ps, t)
-  'I' -> (ps', t)
+rotateFigure' (ps, ft) = case ft of
+  'O' -> (ps, ft)
+  'I' -> (ps', ft)
     where ps' = rotatePoints center ps
           [_,(x1,y1),(x2,y2),_] = ps
           center  | x1 < x2 = ((x1+x2)/2, y1-0.5)
                   | x1 > x2 = ((x1+x2)/2, y1+0.5)
                   | y1 > y2 = (x1-0.5, (y1+y2)/2)
                   | y1 < y2 = (x1+0.5, (y1+y2)/2)
-  t   -> (ps', t)
+  ft   -> (ps', ft)
     where ps' = center:(rotatePoints center rest)
           (center:rest) = ps
 
