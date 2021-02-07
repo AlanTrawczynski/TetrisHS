@@ -52,11 +52,14 @@ manageEvent _ tetris = tetris
 -- Drawing
 -- ----------------------------------------------------------------------------------
 drawTetris :: Tetris -> Picture
-drawTetris (_,f,pf,_,_,_,_,_) = ftext & (center $ drawFigure f & drawPlayfield pf) & coordinatePlane
+drawTetris (_,f,pf,_,_,_,sc,_) = ftext & (center $ drawFigure f & drawPlayfield pf & drawScore sc) & coordinatePlane
   where center = id --translated ((-nc'-1)/2) ((-nr'-1)/2)
         nr' = fromIntegral $ nrows pf
         nc' = fromIntegral $ ncols pf
         ftext = colored green (lettering $ pack $ show $ fst f) --temp
+
+drawScore :: Int -> Picture
+drawScore n = translated (-2) 1.5 $ (lettering (pack (show n))) & colored gray (solidRectangle 4 2)
 
 drawFigure :: Figure -> Picture
 drawFigure (ps, ft) = pictures $ map (\p -> drawPoint p c) ps
@@ -110,16 +113,16 @@ validPosition ((x,y):ps, ft) pf = doesNotExceed && doesNotCollide && validPositi
         doesNotExceed = (x >= 1) && (x <= nc') && (y >= 1)
           where nc' = fromIntegral $ ncols pf
 
-updatePlayfield :: Playfield -> Figure -> Playfield
+updatePlayfield :: Playfield -> Figure -> (Playfield,[Int])
 updatePlayfield pf ([], _)    = removeFullRows pf
-updatePlayfield pf (p:ps, ft)  = updatePlayfield pf' (ps, ft)
+updatePlayfield pf (p:ps, t)  = updatePlayfield pf' (ps, t)
   where pf' = setElem' c p pf
-        c = figuretypeColor ft
+        c = figuretypeColor t
 
-removeFullRows :: Playfield -> Playfield
-removeFullRows pf
-  | null is   = pf
-  | otherwise = newRows toAdd nc <-> removeRows is pf
+removeFullRows :: Playfield -> (Playfield,[Int])
+removeFullRows pf 
+  | null is   = (pf,[])
+  | otherwise = (newRows toAdd nc <-> removeRows is pf, is)
   where is = fullRows pf -- lista de las filas a eliminar
         toAdd = length is
         nc = ncols pf
@@ -152,10 +155,12 @@ removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem
 moveDown :: Tetris -> Tetris
 moveDown (fgen, f, pf, t, dclk, clk, sc, st)
   | validPosition mf pf = (fgen,  mf, pf,   t, dclk,  dclk, sc, st)
-  | otherwise           = (fgen', nf, pf',  t, dclk', dclk, sc, st)
+  | otherwise           = (fgen', nf, pf',  t, dclk', dclk, sc', st)
   where mf = moveFigure f 0 (-1)
         (nf, fgen') = nextFigure fgen
-        pf' = updatePlayfield pf f
+        (pf',is) = updatePlayfield pf f --is es la lista de las filas eliminadas
+        numEliminadas = length is
+        sc' = sc + (round $ (fromIntegral (numEliminadas * 100)) * ( (fromIntegral 1) / dclk))
         dclk' = max (dclk - 0.01) 0.15
 
 moveLeft :: Tetris -> Tetris
