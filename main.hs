@@ -105,31 +105,29 @@ validPosition ((x,y):ps, t) pf = doesNotExceed && doesNotCollide && validPositio
         doesNotExceed = (x >= 1) && (x <= nc') && (y >= 1)
           where nc' = fromIntegral $ ncols pf
 
-refresh :: Playfield -> Figure -> Playfield
-refresh pf ([], _)    = checkLines pf
-refresh pf (p:ps, t)  = refresh pf' (ps, t)
+updatePlayfield :: Playfield -> Figure -> Playfield
+updatePlayfield pf ([], _)    = removeFullRows pf
+updatePlayfield pf (p:ps, t)  = updatePlayfield pf' (ps, t)
   where pf' = setElem' c p pf
         c = figuretypeColor t
 
-checkLines :: Playfield -> Playfield
-checkLines pf
-  | null is = pf
-  | otherwise = newLines toAdd m <-> removeLines is pf 0
-  where is = fullLines pf -- lista de las filas a eliminar
+removeFullRows :: Playfield -> Playfield
+removeFullRows pf
+  | null is   = pf
+  | otherwise = newRows toAdd nc <-> removeRows is pf 0
+  where is = fullRows pf -- lista de las filas a eliminar
         toAdd = length is
-        m = ncols pf
+        nc = ncols pf
 
 -- las líneas a introducir arriba de pf si procede. Serán tantas como eliminadas.
-newLines :: Int -> Int -> Playfield
-newLines n m = fromList n m xs
-  where xs = case n of 0 -> []
-                       _ -> take (n*m) $ repeat black
+newRows :: Int -> Int -> Playfield
+newRows nr nc = matrix nr nc (\_ -> black)
 
--- FullLines es la función encargada de obtener una lista de índices con las filas a borrar.
-fullLines :: Playfield -> [Int]
-fullLines pf = [ i | i <- [1..n], all (/= black) [ pf!(i,j) | j <- [1..m] ] ]
-  where n = nrows pf
-        m = ncols pf
+-- fullRows es la función encargada de obtener una lista de índices con las filas a borrar.
+fullRows :: Playfield -> [Int]
+fullRows pf = [row | 
+                (row, colors) <- zip [1..] (toLists pf), 
+                all (/= black) colors]
 
 -- aux: almacena el número de filas removidas. Los índices a remover son índices de la matriz pf.
 -- no obstante el borrado se realiza de manera progresiva, si tenemos más de una fila a borrar,
@@ -139,15 +137,14 @@ fullLines pf = [ i | i <- [1..n], all (/= black) [ pf!(i,j) | j <- [1..m] ] ]
 -- 2 1 <- si elimino esto, la fila 3 1 tendrá como índices 2 1.
 -- 3 1
 -- NOTA: La lista de índices a borrar está ordenada.
-
-removeLines :: [Int] -> Playfield -> Int -> Playfield
-removeLines [] pf aux = pf
-removeLines (i:is) pf aux
-  | i' == 1 = removeLines is (submatrix (i'+1) (n) 1 m pf) (aux+1)
-  | i' == n = removeLines is (submatrix 1 (i'-1) 1 m pf) (aux+1)
-  | otherwise = removeLines is ((submatrix 1 (i'-1) 1 m pf) <-> (submatrix (i'+1) (n) 1 m pf)) (aux+1)
-  where m = ncols pf
-        n = nrows pf
+removeRows :: [Int] -> Playfield -> Int -> Playfield
+removeRows [] pf aux = pf
+removeRows (i:is) pf aux
+  | i' == 1   = removeRows is (submatrix (i'+1) (nr) 1 nc pf) (aux+1)
+  | i' == nr  = removeRows is (submatrix 1 (i'-1) 1 nc pf) (aux+1)
+  | otherwise = removeRows is ((submatrix 1 (i'-1) 1 nc pf) <-> (submatrix (i'+1) (nr) 1 nc pf)) (aux+1)
+  where nc = ncols pf
+        nr = nrows pf
         i' = i - aux
 
 moveDown :: Tetris -> Tetris
@@ -156,7 +153,7 @@ moveDown (figs, f, pf, _)
   | otherwise           = (figs', nf, pf',  0)
   where mf = moveFigure f 0 (-1)
         (nf, figs') = nextFigure figs
-        pf' = refresh pf f
+        pf' = updatePlayfield pf f
 
 moveLeft :: Tetris -> Tetris
 moveLeft st@(figs, f, pf, time)
