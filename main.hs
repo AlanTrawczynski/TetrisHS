@@ -77,38 +77,44 @@ manageGameover (KeyRelease "N") tetris = newGame tetris
 manageGameover _ tetris = tetris
 
 newGame:: Tetris -> Tetris
-newGame tetris = initTetris $ tail $ fgen tetris
+newGame = initTetris . tail . fgen
 -- ----------------------------------------------------------------------------------
 
 
 -- Drawing
 -- ----------------------------------------------------------------------------------
 drawTetris :: Tetris -> Picture
-drawTetris tetris = ftext & (center $ drawFigure f_ & drawPlayfield pf_ & drawScore sc_) & coordinatePlane
-  where center = id --translated ((-nc'-1)/2) ((-nr'-1)/2)
-        pf_ = pf tetris
-        f_ = f tetris
-        sc_ = sc tetris
+drawTetris tetris = draw tetris & drawBackground $ pf tetris
+  where draw = case st tetris of
+                Normal    -> drawNormal
+                Pause     -> drawPause
+                GameOver  -> drawGameOver
+
+drawBackground :: Playfield -> Picture
+drawBackground pf = solidRectangle x y
+  where y = (fromIntegral $ nrows pf) * 2
+        x = 2*y
+
+drawNormal :: Tetris -> Picture
+drawNormal tetris = center $ pictures [drawFigure $ f tetris, drawPlayfield pf_, drawScore $ sc tetris]
+  where center = translated ((-nc'-1)/2) ((-nr'-1)/2)
         nr' = fromIntegral $ nrows $ pf_
         nc' = fromIntegral $ ncols $ pf_
-        ftext = colored green (lettering $ pack $ show $ fst $ f_) --temp
+        pf_ = pf tetris
 
 drawFigure :: Figure -> Picture
 drawFigure (ps, ft) = pictures $ map (\p -> drawSquare p c) ps
   where c = figuretypeColor ft
 
 drawPlayfield :: Playfield -> Picture
-drawPlayfield pf = squares & bg
-  where nr = nrows pf
-        nc = ncols pf
-        squares = pictures [if c /= black then drawSquare p c else drawPoint p |
-                            row <- [1..nr],
-                            col <- [1..nc],
+drawPlayfield pf = pictures [if c /= black then drawSquare p c else drawPoint p |
+                            row <- [1..nrows pf],
+                            col <- [1..ncols pf],
                             let p = (fromIntegral col, fromIntegral row),
                             let c = pf !. p]
-        bg = colored black (translated ((nc'+1)/2) ((nr'+1)/2) (solidRectangle nc' nr'))
-          where nc' = fromIntegral nc
-                nr' = fromIntegral nr
+
+drawScore :: Int -> Picture
+drawScore n = translated (-2) 1.5 $ (lettering $ pack $ show n) & (colored gray $ solidRectangle 4 2)
 
 drawSquare :: Point -> Color -> Picture
 drawSquare (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
@@ -116,8 +122,15 @@ drawSquare (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
 drawPoint :: Point -> Picture
 drawPoint (x, y) = colored pointColor (translated x y (solidRectangle 0.1 0.1))
 
-drawScore :: Int -> Picture
-drawScore n = translated (-2) 1.5 $ (lettering $ pack $ show n) & (colored gray $ solidRectangle 4 2)
+drawPause :: Tetris -> Picture
+drawPause tetris = drawMenu "PAUSED"
+
+drawGameOver :: Tetris -> Picture
+drawGameOver tetris = drawMenu "GAME OVER"
+
+drawMenu :: String -> Picture
+drawMenu text = colored white title
+  where title = translated 0 5 (styledLettering Plain Fancy (pack $ text))
 -- ----------------------------------------------------------------------------------
 
 
