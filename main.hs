@@ -96,15 +96,20 @@ drawBackground pf = solidRectangle x y
         x = 2*y
 
 drawNormal :: Tetris -> Picture
-drawNormal tetris = center $ pictures [drawFigure $ f tetris, drawPlayfield pf_, drawScore $ sc tetris]
+drawNormal tetris = center $ pictures [drawFigure $ f tetris, drawShadow sf, drawPlayfield pf_, drawScore $ sc tetris]
   where center = translated ((-nc'-1)/2) ((-nr'-1)/2)
         nr' = fromIntegral $ nrows $ pf_
         nc' = fromIntegral $ ncols $ pf_
+        sf = obtainShadow (f tetris) (pf tetris)
         pf_ = pf tetris
 
 drawFigure :: Figure -> Picture
 drawFigure (ps, ft) = pictures $ map (\p -> drawSquare p c) ps
   where c = figuretypeColor ft
+
+drawShadow :: Figure -> Picture
+drawShadow (sps,ft) = pictures $ map (\p -> drawSquare p c) sps
+  where c = translucent $ figuretypeColor ft
 
 drawPlayfield :: Playfield -> Picture
 drawPlayfield pf = pictures [if c /= black then drawSquare p c else drawPoint p |
@@ -285,6 +290,25 @@ rotateFigure' (ps, ft) = case ft of
 rotatePoints :: Point -> [Point] -> [Point]
 rotatePoints center ps = map (rotate center) ps
   where rotate (xo,yo) (xi,yi) = (yi-yo+xo, -(xi-xo)+yo)
+
+-- en caso de no haber ninguna ficha parada abajo m será 0 -> ¿Por qué 0 y no 1? que m fuera 1 significaría que hay
+-- una ficha en la fila uno, entonces la sombra se ubicaría en la fila 2 -> df = y - 1. ys = y - (y-1) + 1 = 2.
+
+-- Si la ficha está por encima del playfield sucede que falla al calcular df -> pf !. (x,m) con m fuera del pf.
+-- la solución está en obtener unos puntos auxiliares de la figura, que la sitúen justo arriba del todo para que simule la 
+-- sombra
+obtainShadow :: Figure -> Playfield -> Figure
+obtainShadow (ps,t) pf = (sps,t)
+  where ps' 
+          | any (\(x,y) -> y > nr) ps = map (\(x,y) -> (x,y-distancePf)) ps --si la figura está por encima del playfield.
+          | otherwise = ps
+        distancePf = maximum [y-nr | (x,y) <- ps] -- y-distancePf para tener 
+        df = minimum [y-m | (x,y) <- ps', let m = head ([ m | m <- [min nr (y-1),min nr (y-2)..1], pf !. (x,m) /= black ] ++ [0]) ]
+        shadowPs = map (\(x,y) -> (x,y-df+1)) ps'
+        sps 
+          | snd (head shadowPs) >= snd (head ps') = []
+          | otherwise = shadowPs
+        nr = fromIntegral $ nrows pf
 -- ----------------------------------------------------------------------------------
 
 
