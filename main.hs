@@ -48,17 +48,36 @@ initTetris fgen@(n:rest) = Tetris fgen f pf 0 1 1 0 Normal
 
 -- Events
 -- ----------------------------------------------------------------------------------
-manageEvent :: Event -> Tetris -> Tetris
-manageEvent (TimePassing dt) tetris
+manageEvent, manageNormal, managePause, manageGameover::
+  Event -> Tetris -> Tetris
+
+manageEvent event tetris = manager event tetris
+  where manager = case st tetris of
+                    Normal    -> manageNormal
+                    Pause     -> managePause
+                    GameOver  -> manageGameover
+
+manageNormal (KeyRelease "Esc") tetris = tetris {st = Pause}
+manageNormal (TimePassing dt) tetris
   | clk tetris < 0  = moveDown tetris
   | otherwise       = tetris {t = (t tetris)+dt, clk = (clk tetris)-dt}
-manageEvent (KeyPress k) tetris = case k of
+manageNormal (KeyPress k) tetris = case k of
   "Up"    -> rotateFigure tetris
   "Down"  -> moveDown tetris
   "Left"  -> moveLeft tetris
   "Right" -> moveRight tetris
   _       -> tetris
-manageEvent _ tetris = tetris
+manageNormal _ tetris = tetris
+
+managePause (KeyRelease "Esc") tetris = tetris {st = Normal}
+managePause (KeyRelease "N") tetris = newGame tetris
+managePause _ tetris = tetris
+
+manageGameover (KeyRelease "N") tetris = newGame tetris
+manageGameover _ tetris = tetris
+
+newGame:: Tetris -> Tetris
+newGame tetris = initTetris $ tail $ fgen tetris
 -- ----------------------------------------------------------------------------------
 
 
@@ -129,13 +148,13 @@ validPosition ((x,y):ps, ft) pf = doesNotExceed && doesNotCollide && validPositi
         doesNotExceed = (x >= 1) && (x <= nc') && (y >= 1)
           where nc' = fromIntegral $ ncols pf
 
-updatePlayfield :: Playfield -> Figure -> (Playfield,[Int])
+updatePlayfield :: Playfield -> Figure -> (Playfield, [Int])
 updatePlayfield pf ([], _)    = removeFullRows pf
-updatePlayfield pf (p:ps, ft)  = updatePlayfield pf' (ps, ft)
+updatePlayfield pf (p:ps, ft) = updatePlayfield pf' (ps, ft)
   where pf' = setElem' c p pf
         c = figuretypeColor ft
 
-removeFullRows :: Playfield -> (Playfield,[Int])
+removeFullRows :: Playfield -> (Playfield, [Int])
 removeFullRows pf
   | null is   = (pf,[])
   | otherwise = (newRows toAdd nc <-> removeRows is pf, is)
@@ -149,18 +168,9 @@ newRows nr nc = matrix nr nc (\_ -> black)
 
 -- fullRows es la función encargada de obtener una lista de índices con las filas a borrar.
 fullRows :: Playfield -> [Int]
-fullRows pf = [row |
+fullRows pf = [ row |
                 (row, colors) <- zip [1..] (toLists pf),
                 all (/= black) colors]
-
--- aux: almacena el número de filas removidas. Los índices a remover son índices de la matriz pf.
--- no obstante el borrado se realiza de manera progresiva, si tenemos más de una fila a borrar,
--- se borrarán uno detrás de otro. Esto significa que los índices no nos valdrán, hay que transformarlos.
--- los índices que queden debajo de la fila borrada son i - aux.
--- 1 1
--- 2 1 <- si elimino esto, la fila 3 1 tendrá como índices 2 1.
--- 3 1
--- NOTA: La lista de índices a borrar está ordenada.
 
 removeRows :: [Int] -> Playfield -> Playfield
 removeRows [] pf = pf
@@ -170,30 +180,23 @@ removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem
 
 moveDown :: Tetris -> Tetris
 moveDown tetris
-  | validPosition mf pf_  = tetris {f = mf, clk = dclk_}
-  | otherwise             = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk = dclk', sc = sc'}
+  | validPosition mf pf_  = tetris {f = mf, clk = dclk tetris}
+  | isGameOver f_         = tetris {st = GameOver}
+  | otherwise             = moveDown' tetris
   where mf = moveFigure f_ 0 (-1)
-        (pf',is) = updatePlayfield pf_ f_
-        (nf, fgen') = nextFigure $ fgen tetris
-        dclk' = max 0.15 (dclk_-0.01)
-        dclk_ = dclk tetris
         pf_ = pf tetris
         f_ = f tetris
-        numEliminadas = length is
-        sc_ = sc tetris
-        sc' = sc_ + (round $ (fromIntegral (numEliminadas * 100)) * ((fromIntegral 1) / dclk_))
 
--- Implementación parcial en sintaxis de registro:
--- moveDown tetris
---   | validPosition mf pf_  = tetris {f = mf, clk = dclk_}
---   | otherwise             = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk = dclk'}
---   where mf = moveFigure f_ 0 (-1)
---         pf' = updatePlayfield pf_ f_
---         (nf, fgen') = nextFigure $ fgen tetris
---         dclk' = max 0.15 (dclk_-0.01)
---         dclk_ = dclk tetris
---         pf_ = pf tetris
---         f_ = f tetris
+moveDown' tetris = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk = dclk', sc = sc'}
+  where dclk_ = dclk tetris
+        (nf, fgen') = nextFigure $ fgen tetris
+        (pf', delRows) = updatePlayfield (pf tetris) (f tetris)
+        dclk' = max 0.15 (dclk_-0.01)
+        sc' = (sc tetris) + (round $ n * 100 * (1/dclk_))
+          where n = fromIntegral $ length $ delRows
+
+isGameOver:: Figure -> Bool
+isGameOver (ps, _) = any (>20) (map snd ps)
 
 moveLeft :: Tetris -> Tetris
 moveLeft tetris
