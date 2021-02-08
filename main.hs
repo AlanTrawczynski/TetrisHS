@@ -69,10 +69,7 @@ drawTetris tetris = ftext & (center $ drawFigure f_ & drawPlayfield pf_ & drawSc
   where center = id --translated ((-nc'-1)/2) ((-nr'-1)/2)
         pf_ = pf tetris
         f_ = f tetris
-<<<<<<< HEAD
         sc_ = sc tetris
-=======
->>>>>>> ac2a8b8f79c4ef2aaed0fca1984c31df1af9d18f
         nr' = fromIntegral $ nrows $ pf_
         nc' = fromIntegral $ ncols $ pf_
         ftext = colored green (lettering $ pack $ show $ fst $ f_) --temp
