@@ -69,7 +69,10 @@ drawTetris tetris = ftext & (center $ drawFigure f_ & drawPlayfield pf_ & drawSc
   where center = id --translated ((-nc'-1)/2) ((-nr'-1)/2)
         pf_ = pf tetris
         f_ = f tetris
+<<<<<<< HEAD
         sc_ = sc tetris
+=======
+>>>>>>> ac2a8b8f79c4ef2aaed0fca1984c31df1af9d18f
         nr' = fromIntegral $ nrows $ pf_
         nc' = fromIntegral $ ncols $ pf_
         ftext = colored green (lettering $ pack $ show $ fst $ f_) --temp
@@ -182,6 +185,18 @@ moveDown tetris
         numEliminadas = length is
         sc_ = sc tetris
         sc' = sc_ + (round $ (fromIntegral (numEliminadas * 100)) * ((fromIntegral 1) / dclk_))
+
+-- Implementación parcial en sintaxis de registro:
+-- moveDown tetris
+--   | validPosition mf pf_  = tetris {f = mf, clk = dclk_}
+--   | otherwise             = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk = dclk'}
+--   where mf = moveFigure f_ 0 (-1)
+--         pf' = updatePlayfield pf_ f_
+--         (nf, fgen') = nextFigure $ fgen tetris
+--         dclk' = max 0.15 (dclk_-0.01)
+--         dclk_ = dclk tetris
+--         pf_ = pf tetris
+--         f_ = f tetris
 
 moveLeft :: Tetris -> Tetris
 moveLeft tetris
