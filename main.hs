@@ -94,29 +94,35 @@ drawTetris tetris = ftext & (center $ drawFigure f_ & drawPlayfield pf_ & drawSc
         ftext = colored green (lettering $ pack $ show $ fst $ f_) --temp
 
 drawFigure :: Figure -> Picture
-drawFigure (ps, ft) = pictures $ map (\p -> drawPoint p c) ps
+drawFigure (ps, ft) = pictures $ map (\p -> drawSquare p c) ps
   where c = figuretypeColor ft
 
 drawPlayfield :: Playfield -> Picture
 drawPlayfield pf = squares & bg
   where nr = nrows pf
         nc = ncols pf
-        squares = pictures [drawPoint p c |
+        squares = pictures [if c /= black then drawSquare p c else drawPoint p |
                             row <- [1..nr],
                             col <- [1..nc],
                             let p = (fromIntegral col, fromIntegral row),
-                            let c = pf !. p,
-                            c /= black]
+                            let c = pf !. p]
         bg = colored black (translated ((nc'+1)/2) ((nr'+1)/2) (solidRectangle nc' nr'))
           where nc' = fromIntegral nc
                 nr' = fromIntegral nr
 
-drawPoint :: Point -> Color -> Picture
-drawPoint (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
+drawSquare :: Point -> Color -> Picture
+drawSquare (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
+
+drawPoint :: Point -> Picture
+drawPoint (x, y) = colored pointColor (translated x y (solidRectangle 0.1 0.1))
 
 drawScore :: Int -> Picture
 drawScore n = translated (-2) 1.5 $ (lettering $ pack $ show n) & (colored gray $ solidRectangle 4 2)
+-- ----------------------------------------------------------------------------------
 
+
+-- Colors
+-- ----------------------------------------------------------------------------------
 figuretypeColor :: FigureType -> Color
 figuretypeColor ft = dull $ case ft of
   'O' -> yellow
@@ -126,6 +132,9 @@ figuretypeColor ft = dull $ case ft of
   'S' -> red
   'Z' -> green
   'T' -> purple
+
+pointColor:: Color
+pointColor = bright yellow
 -- ----------------------------------------------------------------------------------
 
 
