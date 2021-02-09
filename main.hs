@@ -64,7 +64,7 @@ manageNormal (TimePassing dt) tetris
   | clk tetris < 0  = moveDown tetris
   | otherwise       = tetris {t = (t tetris)+dt, clk = (clk tetris)-dt}
 manageNormal (KeyPress k) tetris = case k of
-  "Up"    -> rotateFigure tetris
+  "Up"    -> tryRotateFigure tetris
   "Down"  -> moveDown tetris
   "Left"  -> moveLeft tetris
   "Right" -> moveRight tetris
@@ -97,8 +97,9 @@ drawBackground pf = solidRectangle x y
   where y = (fromIntegral $ nrows pf) * 2
         x = 2*y
 
+-- Normal
 drawNormal :: Tetris -> Picture
-drawNormal tetris = (center (pictures [drawFigure $ f tetris, drawShadow sf, drawPlayfield pf_, drawStats $ tetris]))
+drawNormal tetris = center $ pictures [drawFigure $ f tetris, drawShadow sf, drawPlayfield pf_, drawStats tetris]
   where center = translated ((-nc'-1)/2) ((-nr'-1)/2)
         nr' = fromIntegral $ nrows $ pf_
         nc' = fromIntegral $ ncols $ pf_
@@ -120,41 +121,59 @@ drawPlayfield pf = pictures [if c /= black then drawSquare p c else drawPoint p 
                             let p = (fromIntegral col, fromIntegral row),
                             let c = pf !. p]
 
-drawStats :: Tetris -> Picture
-drawStats tetris = colored green (center 2 (scaled 0.5 0.5 (toText "Score")) & center 1.25 (scaled 0.75 0.75 (toText score))
-                  & center 4 (scaled 0.5 0.5 $ toText "Time played") & center 3.25 (scaled 0.75 0.75 (toText time))
-                  & center 6 (scaled 0.5 0.5 $ toText "Bonus") & center 5.25 (scaled 0.75 0.75 (toText bonus)))
-  where center x = translated (-1.25) x
-        pf_ = pf tetris
-        t_ = floor (t tetris) 
-        minutes = (div t_ 60)
-        seconds = (mod t_ 60) 
-        score = printf "%05d" ((sc tetris)::Int) :: String
-        time = (printf "%02d:%02d" (minutes::Int) (seconds::Int)) :: String
-        bonus = printf "x%.2f" (1/(dclk tetris))
-        nc = fromIntegral $ ncols pf_
-        nr = fromIntegral $ nrows pf_
-        toText t = styledLettering Plain Monospace (pack t) 
-
 drawSquare :: Point -> Color -> Picture
 drawSquare (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
 
 drawPoint :: Point -> Picture
 drawPoint (x, y) = colored pointColor (translated x y (solidRectangle 0.1 0.1))
 
+drawStats :: Tetris -> Picture
+drawStats tetris =  moveY 2 (dilated 0.5 (stringPic "Score"))        & moveY 1.25 (dilated 0.75 (stringPic score))   &
+                    moveY 4 (dilated 0.5 (stringPic "Time played"))  & moveY 3.25 (dilated 0.75 (stringPic time))    &
+                    moveY 6 (dilated 0.5 (stringPic "Bonus"))        & moveY 5.25 (dilated 0.75 (stringPic bonus))
+  where moveY y = translated (-1.25) y
+        score = formatScore $ sc tetris
+        time = formatTime $ t tetris
+        bonus = formatBonus $ dclk tetris
+
+-- Pause
 drawPause :: Tetris -> Picture
-drawPause tetris = drawMenu "PAUSED"
+drawPause tetris = drawTitle "PAUSED" & drawControl
 
+drawControl:: Picture
+drawControl = drawTextLines ls
+  where ls = ["Esc - Resume",
+              "N - New game",
+              "Up arrow - Move right",
+              "Left arrow - Move left",
+              "Right arrow - Move right",
+              "Down arrow - Move down "]
+
+-- GameOver
 drawGameOver :: Tetris -> Picture
-drawGameOver tetris = drawMenu "GAME OVER"
+drawGameOver tetris = drawTitle "GAME OVER" & text
+  where text = drawTextLines ["Score: " ++ (formatScore $ sc tetris),
+                              "Time played: " ++ (formatTime $ t tetris),
+                              "", "",
+                              "Press N to",
+                              "start a new game"]
+        
+-- Generic functions
+drawTitle :: String -> Picture
+drawTitle title = translate.scale $ stringPic title
+  where translate = translated 0 6
+        scale = dilated 3
 
-drawMenu :: String -> Picture
-drawMenu text = colored white title
-  where title = translated 0 5 (styledLettering Plain Fancy (pack $ text))
+drawTextLines:: [String] -> Picture
+drawTextLines ls = pictures [translated 0 y (stringPic l) | (l, y) <- zip ls [n, n-1..]]
+  where n = (fromIntegral $ length ls)/2 - 0.5
+
+stringPic:: String -> Picture
+stringPic = (colored green).(styledLettering Plain Monospace).pack
 -- ----------------------------------------------------------------------------------
 
 
--- Colors
+-- Color & format
 -- ----------------------------------------------------------------------------------
 figuretypeColor :: FigureType -> Color
 figuretypeColor ft = dull $ case ft of
@@ -168,6 +187,16 @@ figuretypeColor ft = dull $ case ft of
 
 pointColor:: Color
 pointColor = bright yellow
+
+formatScore:: Score -> String
+formatScore = printf "%05d"
+
+formatTime:: Time -> String
+formatTime t = printf "%02d:%02d" m s
+  where (m, s) = divMod (floor t) 60 :: (Int, Int)
+
+formatBonus:: DefaultClock -> String
+formatBonus dclk = printf "x%.2f" (1/dclk)
 -- ----------------------------------------------------------------------------------
 
 
@@ -220,7 +249,7 @@ removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem
   where nr = nrows pf
         pfList = toLists pf
 
-moveDown :: Tetris -> Tetris
+moveDown, moveDown' :: Tetris -> Tetris
 moveDown tetris
   | validPosition mf pf_  = tetris {f = mf, clk = dclk tetris}
   | isGameOver f_         = tetris {st = GameOver}
@@ -276,20 +305,20 @@ generateFigure n = case n of
   6 -> ([(5,22),(6,22),(4,23),(5,23)], 'Z')
   7 -> ([(5,22),(4,22),(6,22),(5,23)], 'T')
 
-rotateFigure :: Tetris -> Tetris
-rotateFigure tetris = case maybef' of
+tryRotateFigure :: Tetris -> Tetris
+tryRotateFigure tetris = case maybef' of
   Nothing -> tetris
   Just f' -> tetris {f = f'}
   where maybef' = safeHead $ filter (\f -> validPosition f (pf tetris)) (map ($rf) mvs)
-        rf = rotateFigure' $ f tetris
+        rf = rotateFigure $ f tetris
         mvs = [ \x -> moveFigure x 0    0,
                 \x -> moveFigure x 1    0,
                 \x -> moveFigure x (-1) 0,
                 \x -> moveFigure x 2    0,
                 \x -> moveFigure x (-2) 0]
 
-rotateFigure' :: Figure -> Figure
-rotateFigure' (ps, ft) = case ft of
+rotateFigure :: Figure -> Figure
+rotateFigure (ps, ft) = case ft of
   'O' -> (ps, ft)
   'I' -> (ps', ft)
     where ps' = rotatePoints center ps
@@ -308,10 +337,6 @@ rotatePoints center ps = map (rotate center) ps
 
 -- en caso de no haber ninguna ficha parada abajo m será 0 -> ¿Por qué 0 y no 1? que m fuera 1 significaría que hay
 -- una ficha en la fila uno, entonces la sombra se ubicaría en la fila 2 -> df = y - 1. ys = y - (y-1) + 1 = 2.
-
--- Si la ficha está por encima del playfield sucede que falla al calcular df -> pf !. (x,m) con m fuera del pf.
--- la solución está en obtener unos puntos auxiliares de la figura, que la sitúen justo arriba del todo para que simule la 
--- sombra
 obtainShadow :: Figure -> Playfield -> Figure
 obtainShadow (ps,t) pf = (sps,t)
   where sps = map (\(x,y) -> (x, y-yDif+1)) ps
