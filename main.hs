@@ -36,6 +36,8 @@ type DefaultClock = Double
 type Clock = Double
 type Score = Int
 data State = Normal | Pause | GameOver
+
+data Direction = L | R
 -- ----------------------------------------------------------------------------------
 
 
@@ -64,7 +66,8 @@ manageNormal (TimePassing dt) tetris
   | clk tetris < 0  = moveDown tetris
   | otherwise       = tetris {t = (t tetris)+dt, clk = (clk tetris)-dt}
 manageNormal (KeyPress k) tetris = case k of
-  "Up"    -> tryRotateFigure tetris
+  "Up"    -> tryRotateFigureRight tetris
+  "Z"     -> tryRotateFigureLeft tetris
   "Down"  -> moveDown tetris
   "Left"  -> moveLeft tetris
   "Right" -> moveRight tetris
@@ -305,35 +308,41 @@ generateFigure n = case n of
   6 -> ([(5,22),(6,22),(4,23),(5,23)], 'Z')
   7 -> ([(5,22),(4,22),(6,22),(5,23)], 'T')
 
-tryRotateFigure :: Tetris -> Tetris
-tryRotateFigure tetris = case maybef' of
+tryRotateFigureRight, tryRotateFigureLeft :: Tetris -> Tetris
+tryRotateFigureRight tetris = tryRotateFigure tetris R
+tryRotateFigureLeft tetris = tryRotateFigure tetris L
+
+tryRotateFigure :: Tetris -> Direction -> Tetris
+tryRotateFigure tetris dir = case maybef' of
   Nothing -> tetris
   Just f' -> tetris {f = f'}
   where maybef' = safeHead $ filter (\f -> validPosition f (pf tetris)) (map ($rf) mvs)
-        rf = rotateFigure $ f tetris
+        rf = rotateFigure (f tetris) dir
         mvs = [ \x -> moveFigure x 0    0,
                 \x -> moveFigure x 1    0,
                 \x -> moveFigure x (-1) 0,
                 \x -> moveFigure x 2    0,
                 \x -> moveFigure x (-2) 0]
 
-rotateFigure :: Figure -> Figure
-rotateFigure (ps, ft) = case ft of
+rotateFigure :: Figure -> Direction -> Figure
+rotateFigure (ps, ft) dir = case ft of
   'O' -> (ps, ft)
   'I' -> (ps', ft)
-    where ps' = rotatePoints center ps
+    where ps' = rotatePoints center ps dir
           [_,(x1,y1),(x2,y2),_] = ps
           center  | x1 < x2 = ((x1+x2)/2, y1-0.5)
                   | x1 > x2 = ((x1+x2)/2, y1+0.5)
                   | y1 > y2 = (x1-0.5, (y1+y2)/2)
                   | y1 < y2 = (x1+0.5, (y1+y2)/2)
   ft   -> (ps', ft)
-    where ps' = center:(rotatePoints center rest)
+    where ps' = center:(rotatePoints center rest dir)
           (center:rest) = ps
 
-rotatePoints :: Point -> [Point] -> [Point]
-rotatePoints center ps = map (rotate center) ps
-  where rotate (xo,yo) (xi,yi) = (yi-yo+xo, -(xi-xo)+yo)
+rotatePoints :: Point -> [Point] -> Direction -> [Point]
+rotatePoints center ps dir = map (rotate center) ps
+  where rotate (xo,yo) (xi,yi) = case dir of
+          R -> (yi-yo+xo, -(xi-xo)+yo)
+          L -> (-(yi-yo)+xo, xi-xo+yo)
 
 -- en caso de no haber ninguna ficha parada abajo m será 0 -> ¿Por qué 0 y no 1? que m fuera 1 significaría que hay
 -- una ficha en la fila uno, entonces la sombra se ubicaría en la fila 2 -> df = y - 1. ys = y - (y-1) + 1 = 2.
