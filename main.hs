@@ -3,6 +3,8 @@ import CodeWorld
 import System.Random (getStdGen, randomRs)
 import Data.Matrix
 import Data.Text (pack)
+import Text.Printf
+import Data.Fixed
 
 main :: IO ()
 main = do
@@ -96,7 +98,7 @@ drawBackground pf = solidRectangle x y
         x = 2*y
 
 drawNormal :: Tetris -> Picture
-drawNormal tetris = center $ pictures [drawFigure $ f tetris, drawShadow sf, drawPlayfield pf_, drawScore $ sc tetris]
+drawNormal tetris = (center (pictures [drawFigure $ f tetris, drawShadow sf, drawPlayfield pf_, drawStats $ tetris]))
   where center = translated ((-nc'-1)/2) ((-nr'-1)/2)
         nr' = fromIntegral $ nrows $ pf_
         nc' = fromIntegral $ ncols $ pf_
@@ -118,8 +120,21 @@ drawPlayfield pf = pictures [if c /= black then drawSquare p c else drawPoint p 
                             let p = (fromIntegral col, fromIntegral row),
                             let c = pf !. p]
 
-drawScore :: Int -> Picture
-drawScore n = translated (-2) 1.5 $ (lettering $ pack $ show n) & (colored gray $ solidRectangle 4 2)
+drawStats :: Tetris -> Picture
+drawStats tetris = colored green (center 2 (scaled 0.5 0.5 (toText "Score")) & center 1.25 (scaled 0.75 0.75 (toText score))
+                  & center 4 (scaled 0.5 0.5 $ toText "Time played") & center 3.25 (scaled 0.75 0.75 (toText time))
+                  & center 6 (scaled 0.5 0.5 $ toText "Bonus") & center 5.25 (scaled 0.75 0.75 (toText bonus)))
+  where center x = translated (-1.25) x
+        pf_ = pf tetris
+        t_ = floor (t tetris) 
+        minutes = (div t_ 60)
+        seconds = (mod t_ 60) 
+        score = printf "%05d" ((sc tetris)::Int) :: String
+        time = (printf "%02d:%02d" (minutes::Int) (seconds::Int)) :: String
+        bonus = printf "x%.2f" (1/(dclk tetris))
+        nc = fromIntegral $ ncols pf_
+        nr = fromIntegral $ nrows pf_
+        toText t = styledLettering Plain Monospace (pack t) 
 
 drawSquare :: Point -> Color -> Picture
 drawSquare (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
