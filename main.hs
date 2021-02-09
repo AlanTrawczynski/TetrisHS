@@ -299,16 +299,15 @@ rotatePoints center ps = map (rotate center) ps
 -- sombra
 obtainShadow :: Figure -> Playfield -> Figure
 obtainShadow (ps,t) pf = (sps,t)
-  where ps' 
-          | any (\(x,y) -> y > nr) ps = map (\(x,y) -> (x,y-distancePf)) ps --si la figura está por encima del playfield.
-          | otherwise = ps
-        distancePf = maximum [y-nr | (x,y) <- ps] -- y-distancePf para tener 
-        df = minimum [y-m | (x,y) <- ps', let m = head ([ m | m <- [min nr (y-1),min nr (y-2)..1], pf !. (x,m) /= black ] ++ [0]) ]
-        shadowPs = map (\(x,y) -> (x,y-df+1)) ps'
-        sps 
-          | snd (head shadowPs) >= snd (head ps') = []
-          | otherwise = shadowPs
-        nr = fromIntegral $ nrows pf
+  where sps = map (\(x,y) -> (x, y-yDif+1)) ps
+        yDif = minimum [y - maxNotEmptyRow | 
+                        (x,y) <- ps, 
+                        let ys2 = [ y2 | 
+                                    y2 <- [y, y-1..1],
+                                    y2 <= nr',
+                                    pf !. (x,y2) /= black],
+                        let maxNotEmptyRow = if null ys2 then 0 else head ys2]
+        nr' = fromIntegral $ nrows pf
 -- ----------------------------------------------------------------------------------
 
 
