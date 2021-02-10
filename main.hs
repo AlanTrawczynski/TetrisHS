@@ -4,6 +4,7 @@ import Text.Printf (printf)
 import Data.Text (pack)
 import Data.Matrix
 import CodeWorld
+import Data.List (nub)
 
 main :: IO ()
 main = do
@@ -118,6 +119,10 @@ drawFigure f@(ps, ft) pf = draw ps c & draw sps (translucent c)
                 f (x,y) ac  | y <= nr'  = (drawSquare (x,y) c):ac
                             | otherwise = ac
 
+drawNextFigure :: Figure -> Picture
+drawNextFigure (ps, ft) = colored green (pictures $ map (\p -> draw p) ps)
+  where draw (x,y) = translated x y (thickRectangle 0.11 0.82 0.82)
+
 drawPlayfield :: Playfield -> Picture
 drawPlayfield pf = pictures [if c /= black then drawSquare p c else drawPoint p |
                             row <- [1..nrows pf],
@@ -132,13 +137,25 @@ drawPoint :: Point -> Picture
 drawPoint (x, y) = colored pointColor (translated x y (solidRectangle 0.1 0.1))
 
 drawStats :: Tetris -> Picture
-drawStats tetris =  moveY 2 (dilated 0.5 (stringPic "Score"))        & moveY 1.25 (dilated 0.75 (stringPic score))  &
-                    moveY 4 (dilated 0.5 (stringPic "Time played"))  & moveY 3.25 (dilated 0.75 (stringPic time))   &
-                    moveY 6 (dilated 0.5 (stringPic "Bonus"))        & moveY 5.25 (dilated 0.75 (stringPic bonus))
+drawStats tetris =  moveY 2 (scaleText (stringPic "Score"))        & moveY 1.25 (scaleData (stringPic score))   &
+                    moveY 4 (scaleText (stringPic "Time played"))  & moveY 3.25 (scaleData (stringPic time))    &
+                    moveY 6 (scaleText (stringPic "Bonus"))        & moveY 5.25 (scaleData (stringPic bonus))   &
+                    moveY (nr-2) (scaleData $ drawNextFigure fig)
   where moveY y = translated (-1.25) y
+        scaleText = dilated 0.5
+        scaleData = dilated 0.75
         score = formatScore $ sc tetris
         time = formatTime $ t tetris
         bonus = formatBonus $ dclk tetris
+        nr = fromIntegral $ nrows $ pf tetris
+        typ = fst $ nextFgen (fgen tetris)
+        fig = centerAxis $ spawnFigure (typ)
+        
+centerAxis :: Figure -> Figure
+centerAxis (ps,t) = (ps',t)
+  where ps' = map (\(x,y) -> (x-avg,y)) ps
+        avg = average $ nub [ x | (x,y) <- ps]
+        average xs = (sum xs) / (fromIntegral (length xs))
 
 -- Pause
 drawPause :: Tetris -> Picture
@@ -321,6 +338,15 @@ generateFigure n pf = (ps', ft)
         nc = ncols pf
         nc' = fromIntegral nc
         nr' = fromIntegral $ nrows pf
+
+equivalent :: Char -> Int
+equivalent c = case c of  'O' -> 1
+                          'I' -> 2
+                          'L' -> 3
+                          'J' -> 4
+                          'S' -> 5
+                          'Z' -> 6
+                          'T' -> 7
 
 spawnFigure :: Int -> Figure
 spawnFigure n = case n of
