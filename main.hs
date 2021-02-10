@@ -223,9 +223,10 @@ setElem' color (x,y) pf = setElem color (r,c) pf
 validPosition :: Figure -> Playfield -> Bool
 validPosition ([], _) _ = True
 validPosition ((x,y):ps, ft) pf = doesNotExceed && doesNotCollide && validPosition (ps, ft) pf
-  where doesNotCollide = y > 20 || (pf !. (x,y)) == black
-        doesNotExceed = (x >= 1) && (x <= nc') && (y >= 1)
-          where nc' = fromIntegral $ ncols pf
+  where doesNotCollide = y > nr' || pf !. (x,y) == black
+        doesNotExceed = x >= 1 && x <= nc' && y >= 1
+        nr' = fromIntegral $ nrows pf
+        nc' = fromIntegral $ ncols pf
 
 updatePlayfield :: Playfield -> Figure -> (Playfield, [Int])
 updatePlayfield pf ([], _)    = removeFullRows pf
@@ -260,7 +261,7 @@ removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem
 moveDown, moveDown' :: Tetris -> Tetris
 moveDown tetris
   | validPosition mf pf_  = tetris {f = mf, clk = dclk tetris}
-  | isGameOver f_         = tetris {st = GameOver}
+  | isGameOver f_ pf_     = tetris {st = GameOver}
   | otherwise             = moveDown' tetris
   where mf = moveFigure f_ 0 (-1)
         pf_ = pf tetris
@@ -275,8 +276,9 @@ moveDown' tetris = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk = d
         sc' = (sc tetris) + (round $ n * 100 * (1/dclk_))
           where n = fromIntegral $ length $ delRows
 
-isGameOver:: Figure -> Bool
-isGameOver (ps, _) = any (>20) (map snd ps)
+isGameOver:: Figure -> Playfield -> Bool
+isGameOver (ps, _) pf = any (>ceil) (map snd ps)
+  where ceil = fromIntegral $ nrows pf
 
 moveLeft :: Tetris -> Tetris
 moveLeft tetris
