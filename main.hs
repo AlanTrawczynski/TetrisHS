@@ -45,7 +45,7 @@ data Direction = L | R
 initTetris :: FigureGenerator -> Tetris
 initTetris fgen@(n:rest) = Tetris fgen f pf 0 1 1 0 Normal
     where pf = matrix 20 10 (\_ -> black)
-          f = generateFigure n
+          f = generateFigure n pf
 -- ----------------------------------------------------------------------------------
 
 
@@ -132,8 +132,8 @@ drawPoint :: Point -> Picture
 drawPoint (x, y) = colored pointColor (translated x y (solidRectangle 0.1 0.1))
 
 drawStats :: Tetris -> Picture
-drawStats tetris =  moveY 2 (dilated 0.5 (stringPic "Score"))        & moveY 1.25 (dilated 0.75 (stringPic score))   &
-                    moveY 4 (dilated 0.5 (stringPic "Time played"))  & moveY 3.25 (dilated 0.75 (stringPic time))    &
+drawStats tetris =  moveY 2 (dilated 0.5 (stringPic "Score"))        & moveY 1.25 (dilated 0.75 (stringPic score))  &
+                    moveY 4 (dilated 0.5 (stringPic "Time played"))  & moveY 3.25 (dilated 0.75 (stringPic time))   &
                     moveY 6 (dilated 0.5 (stringPic "Bonus"))        & moveY 5.25 (dilated 0.75 (stringPic bonus))
   where moveY y = translated (-1.25) y
         score = formatScore $ sc tetris
@@ -267,9 +267,10 @@ moveDown tetris
         f_ = f tetris
 
 moveDown' tetris = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk = dclk', sc = sc'}
-  where dclk_ = dclk tetris
-        (nf, fgen') = nextFigure $ fgen tetris
-        (pf', delRows) = updatePlayfield (pf tetris) (f tetris)
+  where pf_ = pf tetris
+        dclk_ = dclk tetris
+        (nf, fgen') = nextFigure (fgen tetris) pf_
+        (pf', delRows) = updatePlayfield pf_ (f tetris)
         dclk' = max 0.15 (dclk_-0.01)
         sc' = (sc tetris) + (round $ n * 100 * (1/dclk_))
           where n = fromIntegral $ length $ delRows
@@ -298,20 +299,33 @@ moveFigure (ps, ft) dx dy = (move ps, ft)
 
 -- Figure
 -- ----------------------------------------------------------------------------------
-nextFigure :: FigureGenerator -> (Figure, FigureGenerator)
-nextFigure (current:next:next2:rest)
-  | current /= next = (generateFigure next, next:rest)
-  | otherwise       = (generateFigure next2, next2:rest)
+nextFigure :: FigureGenerator -> Playfield -> (Figure, FigureGenerator)
+nextFigure (current:next:next2:rest) pf
+  | current /= next = (generateFigure next pf, next:rest)
+  | otherwise       = (generateFigure next2 pf, next2:rest)
 
-generateFigure :: Int -> Figure
-generateFigure n = case n of
-  1 -> ([(5,22),(6,22),(5,23),(6,23)], 'O')
-  2 -> ([(4,22),(5,22),(6,22),(7,22)], 'I')
-  3 -> ([(5,22),(4,22),(6,22),(6,23)], 'L')
-  4 -> ([(5,22),(4,22),(6,22),(4,23)], 'J')
-  5 -> ([(5,22),(4,22),(5,23),(6,23)], 'S')
-  6 -> ([(5,22),(6,22),(4,23),(5,23)], 'Z')
-  7 -> ([(5,22),(4,22),(6,22),(5,23)], 'T')
+generateFigure :: Int -> Playfield -> Figure
+generateFigure n pf = (ps', ft)
+  where ps' = map (\(x, y) -> (x+dx, y+dy)) ps
+        (ps, ft) = spawnFigure n
+        dx  | even nc                 = nc'/2
+            | ft == 'I' || ft == 'O'  = nc'/2 - 0.5
+            | otherwise               = nc'/2 + 0.5
+        dy = nr' + 1
+        nc = ncols pf
+        nc' = fromIntegral nc
+        nr' = fromIntegral $ nrows pf
+
+spawnFigure :: Int -> Figure
+spawnFigure n = case n of
+  1 -> ([(0,1),   (1,1),    (0,2),    (1,2)],   'O')
+  2 -> ([(-1,1),  (0,1),    (1,1),    (2,1)],   'I')
+  3 -> ([(0,1),   (-1,1),   (1,1),    (1,2)],   'L')
+  4 -> ([(0,1),   (-1,1),   (1,1),    (-1,2)],  'J')
+  5 -> ([(0,1),   (-1,1),   (0,2),    (1,2)],   'S')
+  6 -> ([(0,1),   (1,1),    (-1,2),   (0,2)],   'Z')
+  7 -> ([(0,1),   (-1,1),   (1,1),    (0,2)],   'T')
+
 
 tryRotateFigureRight, tryRotateFigureLeft :: Tetris -> Tetris
 tryRotateFigureRight tetris = tryRotateFigure tetris R
