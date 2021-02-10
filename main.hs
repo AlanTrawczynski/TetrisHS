@@ -147,16 +147,20 @@ drawControl:: Picture
 drawControl = drawTextLines ls
   where ls = ["Esc - Resume",
               "N - New game",
-              "Up arrow - Move right",
+              "Z - Rotate left",
+              "Up arrow - Rotate right",
               "Left arrow - Move left",
               "Right arrow - Move right",
               "Down arrow - Move down "]
 
 -- GameOver
 drawGameOver :: Tetris -> Picture
-drawGameOver tetris = drawTitle "GAME OVER" & text
-  where text = drawTextLines ["Score: " ++ (formatScore $ sc tetris),
-                              "Time played: " ++ (formatTime $ t tetris),
+drawGameOver tetris = drawTitle "GAME OVER" & translated 0 (-1.5) text
+  where text = drawTextLines ["Score",
+                              show $ sc tetris,
+                              "",
+                              "Time played",
+                              formatTime $ t tetris,
                               "", "",
                               "Press N to",
                               "start a new game"]
