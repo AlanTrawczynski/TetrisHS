@@ -71,6 +71,7 @@ manageNormal (KeyPress k) tetris = case k of
   "Down"  -> moveDown tetris
   "Left"  -> moveLeft tetris
   "Right" -> moveRight tetris
+  "Enter" -> instantDown tetris
   _       -> tetris
 manageNormal _ tetris = tetris
 
@@ -113,7 +114,7 @@ drawNormal tetris = center $ pictures [ drawFigure (f tetris) pf_,
 drawFigure :: Figure -> Playfield -> Picture
 drawFigure f@(ps, ft) pf = draw ps c & draw sps (translucent c)
   where c = figuretypeColor ft
-        (sps, _) = obtainShadow f pf
+        (sps, _) = obtainMaxDown f pf
         draw ps c = pictures $ foldr f [] ps
           where nr' = fromIntegral $ nrows pf
                 f (x,y) ac  | y <= nr'  = (drawSquare (x,y) c):ac
@@ -293,6 +294,16 @@ moveDown' tetris = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk = d
         sc' = (sc tetris) + (round $ n * 100 * (1/dclk_))
           where n = fromIntegral $ length $ delRows
 
+instantDown :: Tetris -> Tetris
+instantDown tetris = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk = dclk', sc = sc'}
+  where pf_ = pf tetris
+        dclk_ = dclk tetris
+        (nf, fgen') = nextFigure (fgen tetris) pf_
+        (pf', delRows) = updatePlayfield pf_ (obtainMaxDown (f tetris) pf_)
+        dclk' = max 0.15 (dclk_-0.01)
+        sc' = (sc tetris) + (round $ n * 100 * (1/dclk_))
+          where n = fromIntegral $ length $ delRows
+
 isGameOver:: Figure -> Playfield -> Bool
 isGameOver (ps, _) pf = any (>ceil) (map snd ps)
   where ceil = fromIntegral $ nrows pf
@@ -397,8 +408,8 @@ rotatePoints center ps dir = map (rotate center) ps
 
 -- en caso de no haber ninguna ficha parada abajo m será 0 -> ¿Por qué 0 y no 1? que m fuera 1 significaría que hay
 -- una ficha en la fila uno, entonces la sombra se ubicaría en la fila 2 -> df = y - 1. ys = y - (y-1) + 1 = 2.
-obtainShadow :: Figure -> Playfield -> Figure
-obtainShadow (ps,t) pf = (sps,t)
+obtainMaxDown :: Figure -> Playfield -> Figure
+obtainMaxDown (ps,t) pf = (sps,t)
   where sps = map (\(x,y) -> (x, y-yDif+1)) ps
         yDif = minimum [y - maxNotEmptyRow | 
                         (x,y) <- ps, 
