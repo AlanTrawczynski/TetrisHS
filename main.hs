@@ -61,10 +61,13 @@ manageEvent event tetris = manager event tetris
                     Pause     -> managePause
                     GameOver  -> manageGameover
 
-manageNormal (KeyRelease "Esc") tetris = tetris {st = Pause}
 manageNormal (TimePassing dt) tetris
   | clk tetris < 0  = moveDown tetris
   | otherwise       = tetris {t = (t tetris)+dt, clk = (clk tetris)-dt}
+manageNormal (KeyRelease k) tetris = case k of
+  "Esc" -> tetris {st = Pause}
+  "C"   -> instantDown tetris
+  _     -> tetris
 manageNormal (KeyPress k) tetris = case k of
   "Up"    -> tryRotateFigureRight tetris
   "Z"     -> tryRotateFigureLeft tetris
@@ -72,9 +75,6 @@ manageNormal (KeyPress k) tetris = case k of
   "Left"  -> moveLeft tetris
   "Right" -> moveRight tetris
   _       -> tetris
-
-manageNormal (KeyRelease "C") tetris = instantDown tetris
-
 manageNormal _ tetris = tetris
 
 managePause (KeyRelease "Esc") tetris = tetris {st = Normal}
@@ -168,6 +168,7 @@ drawControl:: Picture
 drawControl = drawTextLines ls
   where ls = ["Esc - Resume",
               "N - New game",
+              "C - Hard drop",
               "Z - Rotate left",
               "Up arrow - Rotate right",
               "Left arrow - Move left",
@@ -278,30 +279,28 @@ removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem
   where nr = nrows pf
         pfList = toLists pf
 
-moveDown, moveDown' :: Tetris -> Tetris
+moveDown :: Tetris -> Tetris
 moveDown tetris
   | validPosition mf pf_  = tetris {f = mf, clk = dclk tetris}
   | isGameOver f_ pf_     = tetris {st = GameOver}
-  | otherwise             = moveDown' tetris
+  | otherwise             = placeFigure tetris
   where mf = moveFigure f_ 0 (-1)
         pf_ = pf tetris
         f_ = f tetris
 
-moveDown' tetris = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk = dclk', sc = sc'}
+instantDown :: Tetris -> Tetris
+instantDown tetris
+  | isGameOver f' pf_ = tetris {st = GameOver}
+  | otherwise         = placeFigure $ tetris {f = f'}
+  where f' = obtainMaxDown (f tetris) pf_
+        pf_ = pf tetris
+
+placeFigure :: Tetris -> Tetris
+placeFigure tetris = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk = dclk', sc = sc'}
   where pf_ = pf tetris
         dclk_ = dclk tetris
         (nf, fgen') = nextFigure (fgen tetris) pf_
         (pf', delRows) = updatePlayfield pf_ (f tetris)
-        dclk' = max 0.15 (dclk_-0.01)
-        sc' = (sc tetris) + (round $ n * 100 * (1/dclk_))
-          where n = fromIntegral $ length $ delRows
-
-instantDown :: Tetris -> Tetris
-instantDown tetris = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk = dclk', sc = sc'}
-  where pf_ = pf tetris
-        dclk_ = dclk tetris
-        (nf, fgen') = nextFigure (fgen tetris) pf_
-        (pf', delRows) = updatePlayfield pf_ (obtainMaxDown (f tetris) pf_)
         dclk' = max 0.15 (dclk_-0.01)
         sc' = (sc tetris) + (round $ n * 100 * (1/dclk_))
           where n = fromIntegral $ length $ delRows
@@ -370,7 +369,6 @@ spawnFigure n = case n of
   5 -> ([(0,1),   (-1,1),   (0,2),    (1,2)],   'S')
   6 -> ([(0,1),   (1,1),    (-1,2),   (0,2)],   'Z')
   7 -> ([(0,1),   (-1,1),   (1,1),    (0,2)],   'T')
-
 
 tryRotateFigureRight, tryRotateFigureLeft :: Tetris -> Tetris
 tryRotateFigureRight tetris = tryRotateFigure tetris R
