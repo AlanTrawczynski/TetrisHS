@@ -1,10 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
-import CodeWorld
 import System.Random (getStdGen, randomRs)
-import Data.Matrix
+import Text.Printf (printf)
 import Data.Text (pack)
-import Text.Printf
-import Data.Fixed
+import Data.Matrix
+import CodeWorld
 
 main :: IO ()
 main = do
@@ -102,20 +101,22 @@ drawBackground pf = solidRectangle x y
 
 -- Normal
 drawNormal :: Tetris -> Picture
-drawNormal tetris = center $ pictures [drawFigure $ f tetris, drawShadow sf, drawPlayfield pf_, drawStats tetris]
+drawNormal tetris = center $ pictures [ drawFigure (f tetris) pf_, 
+                                        drawPlayfield pf_, 
+                                        drawStats tetris]
   where center = translated ((-nc'-1)/2) ((-nr'-1)/2)
         nr' = fromIntegral $ nrows $ pf_
         nc' = fromIntegral $ ncols $ pf_
-        sf = obtainShadow (f tetris) (pf tetris)
         pf_ = pf tetris
 
-drawFigure :: Figure -> Picture
-drawFigure (ps, ft) = pictures $ map (\p -> drawSquare p c) ps
+drawFigure :: Figure -> Playfield -> Picture
+drawFigure f@(ps, ft) pf = draw ps c & draw sps (translucent c)
   where c = figuretypeColor ft
-
-drawShadow :: Figure -> Picture
-drawShadow (sps,ft) = pictures $ map (\p -> drawSquare p c) sps
-  where c = translucent $ figuretypeColor ft
+        (sps, _) = obtainShadow f pf
+        draw ps c = pictures $ foldr f [] ps
+          where nr' = fromIntegral $ nrows pf
+                f (x,y) ac  | y <= nr'  = (drawSquare (x,y) c):ac
+                            | otherwise = ac
 
 drawPlayfield :: Playfield -> Picture
 drawPlayfield pf = pictures [if c /= black then drawSquare p c else drawPoint p |
