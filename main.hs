@@ -302,9 +302,13 @@ moveFigure (ps, ft) dx dy = (move ps, ft)
 -- Figure
 -- ----------------------------------------------------------------------------------
 nextFigure :: FigureGenerator -> Playfield -> (Figure, FigureGenerator)
-nextFigure (current:next:next2:rest) pf
-  | current /= next = (generateFigure next pf, next:rest)
-  | otherwise       = (generateFigure next2 pf, next2:rest)
+nextFigure fgen pf = (generateFigure n pf, fgen')
+  where (n, fgen') = nextFgen fgen
+
+nextFgen :: FigureGenerator -> (Int, FigureGenerator)
+nextFgen (current:next:next2:rest)
+  | current /= next = (next, next:rest)
+  | otherwise       = (next2, next2:rest)
 
 generateFigure :: Int -> Playfield -> Figure
 generateFigure n pf = (ps', ft)
