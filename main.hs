@@ -71,8 +71,10 @@ manageNormal (KeyPress k) tetris = case k of
   "Down"  -> moveDown tetris
   "Left"  -> moveLeft tetris
   "Right" -> moveRight tetris
-  "Enter" -> instantDown tetris
   _       -> tetris
+
+manageNormal (KeyRelease "C") tetris = instantDown tetris
+
 manageNormal _ tetris = tetris
 
 managePause (KeyRelease "Esc") tetris = tetris {st = Normal}
