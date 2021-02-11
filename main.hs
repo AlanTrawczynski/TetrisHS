@@ -10,7 +10,7 @@ main :: IO ()
 main = do
   g <- getStdGen
   let fgen = randomRs (1, 7) g :: FigureGenerator
-  debugActivityOf (initTetris fgen) manageEvent drawTetris
+  debugActivityOf (startTetris fgen) manageEvent drawTetris
 
 
 -- Types
@@ -35,7 +35,7 @@ type Time = Double
 type DefaultClock = Double
 type Clock = Double
 type Score = Int
-data State = Normal | Pause | GameOver
+data State = Start | Normal | Pause | GameOver
 
 data Direction = L | R
 -- ----------------------------------------------------------------------------------
@@ -43,23 +43,34 @@ data Direction = L | R
 
 -- Init
 -- ----------------------------------------------------------------------------------
+startTetris :: FigureGenerator -> Tetris
+startTetris fgen = tetris {st = Start}
+  where tetris = initTetris fgen
+
 initTetris :: FigureGenerator -> Tetris
 initTetris fgen@(n:rest) = Tetris fgen f pf 0 1 1 0 Normal
     where pf = matrix 20 10 (\_ -> black)
           f = generateFigure n pf
+
+newGame:: Tetris -> Tetris
+newGame = initTetris . (drop 3) . fgen
 -- ----------------------------------------------------------------------------------
 
 
 -- Events
 -- ----------------------------------------------------------------------------------
-manageEvent, manageNormal, managePause, manageGameover::
+manageEvent, manageStart, manageNormal, managePause, manageGameover::
   Event -> Tetris -> Tetris
 
 manageEvent event tetris = manager event tetris
   where manager = case st tetris of
+                    Start     -> manageStart
                     Normal    -> manageNormal
                     Pause     -> managePause
                     GameOver  -> manageGameover
+
+manageStart (KeyRelease _) tetris = tetris {st = Normal}
+manageStart _ tetris = tetris
 
 manageNormal (TimePassing dt) tetris
   | clk tetris < 0  = moveDown tetris
@@ -83,9 +94,6 @@ managePause _ tetris = tetris
 
 manageGameover (KeyRelease "N") tetris = newGame tetris
 manageGameover _ tetris = tetris
-
-newGame:: Tetris -> Tetris
-newGame = initTetris . tail . fgen
 -- ----------------------------------------------------------------------------------
 
 
@@ -94,6 +102,7 @@ newGame = initTetris . tail . fgen
 drawTetris :: Tetris -> Picture
 drawTetris tetris = draw tetris & drawBackground $ pf tetris
   where draw = case st tetris of
+                Start     -> drawStart
                 Normal    -> drawNormal
                 Pause     -> drawPause
                 GameOver  -> drawGameOver
@@ -102,6 +111,12 @@ drawBackground :: Playfield -> Picture
 drawBackground pf = solidRectangle x y
   where y = (fromIntegral $ nrows pf) * 2
         x = 2*y
+
+-- Start
+drawStart :: Tetris -> Picture
+drawStart tetris = drawTextLines ls
+  where ls = ["Press any key",
+              "to start"]
 
 -- Normal
 drawNormal :: Tetris -> Picture
@@ -174,7 +189,7 @@ drawControl = drawTextLines ls
               "Up arrow - Rotate right",
               "Left arrow - Move left",
               "Right arrow - Move right",
-              "Down arrow - Move down "]
+              "Down arrow - Move down"]
 
 -- GameOver
 drawGameOver :: Tetris -> Picture
