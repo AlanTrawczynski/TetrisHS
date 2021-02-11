@@ -1,16 +1,56 @@
 {-# LANGUAGE OverloadedStrings #-}
+module Tetris (runTetris, runCustomTetris) where
+
 import System.Random (getStdGen, randomRs)
 import Text.Printf (printf)
+import Data.Char (isDigit)
 import Data.Text (pack)
 import Data.List (nub)
 import Data.Matrix
 import CodeWorld
 
-main :: IO ()
-main = do
+
+-- IO
+-- ----------------------------------------------------------------------------------
+runTetris :: IO ()
+runTetris = do
+  fgen <- generateRandoms
+  debugActivityOf (startTetris fgen 20 10) manageEvent drawTetris
+
+
+runCustomTetris :: IO ()
+runCustomTetris = do
+  rows <- getMinNum "Number of rows" 5
+  cols <- getMinNum "Number of columns" 5
+  fgen <- generateRandoms
+
+  debugActivityOf (startTetris fgen rows cols) manageEvent drawTetris
+
+
+generateRandoms :: IO FigureGenerator
+generateRandoms = do
   g <- getStdGen
-  let fgen = randomRs (1, 7) g :: FigureGenerator
-  debugActivityOf (startTetris fgen) manageEvent drawTetris
+  return $ randomRs (1, 7) g
+
+
+getMinNum:: String -> Int -> IO Int
+getMinNum q minN = do
+  putStrLn $ printf "%s (min %d): " q minN
+  xs <- getLine
+
+  if all isDigit xs then do
+    let n = read xs :: Int
+
+    if n >= minN then
+      return n
+
+    else do
+      putStrLn $ printf "\t%s is not a valid number (must be %d or highter), please try again." xs minN
+      getMinNum q minN
+  else do
+    putStrLn $ printf "\t%s is not a natural number, please try again." xs
+    getMinNum q minN
+-- ----------------------------------------------------------------------------------
 
 
 -- Types
@@ -43,17 +83,19 @@ data Direction = L | R
 
 -- Init
 -- ----------------------------------------------------------------------------------
-startTetris :: FigureGenerator -> Tetris
-startTetris fgen = tetris {st = Start}
-  where tetris = initTetris fgen
+startTetris :: FigureGenerator -> Int -> Int -> Tetris
+startTetris fgen nr nc = tetris {st = Start}
+  where tetris = initTetris fgen nr nc
 
-initTetris :: FigureGenerator -> Tetris
-initTetris fgen@(n:rest) = Tetris fgen f pf 0 1 1 0 Normal
-    where pf = matrix 20 10 (\_ -> black)
+initTetris :: FigureGenerator -> Int -> Int -> Tetris
+initTetris fgen@(n:rest) nr nc = Tetris fgen f pf 0 1 1 0 Normal
+    where pf = matrix nr nc (\_ -> black)
           f = generateFigure n pf
 
 newGame:: Tetris -> Tetris
-newGame = initTetris . (drop 3) . fgen
+newGame tetris = initTetris fgen' (nrows pf_) (ncols pf_)
+  where fgen' = drop 3 (fgen tetris)
+        pf_ = pf tetris
 -- ----------------------------------------------------------------------------------
 
 
