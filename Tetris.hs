@@ -139,7 +139,7 @@ manageGameover _ tetris = tetris
 -- ----------------------------------------------------------------------------------
 
 
--- Drawing
+-- Draw
 -- ----------------------------------------------------------------------------------
 screenWidth, screenHeight :: Double
 screenWidth = 42
@@ -299,7 +299,7 @@ formatBonus dclk = printf "x%.2f" (1/dclk)
 -- ----------------------------------------------------------------------------------
 
 
--- Playfield
+-- Tetris
 -- ----------------------------------------------------------------------------------
 (!.) :: Playfield -> Point -> Color
 pf !. (x,y) = getElem r c pf
@@ -445,15 +445,6 @@ generateFigure n pf = (ps', ft)
         nc = ncols pf
         nc' = fromIntegral nc
         nr' = fromIntegral $ nrows pf
-
-equivalent :: Char -> Int
-equivalent c = case c of  'O' -> 1
-                          'I' -> 2
-                          'L' -> 3
-                          'J' -> 4
-                          'S' -> 5
-                          'Z' -> 6
-                          'T' -> 7
 
 spawnFigure :: Int -> Figure
 spawnFigure n = case n of
