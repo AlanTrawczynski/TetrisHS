@@ -2,9 +2,9 @@
 import System.Random (getStdGen, randomRs)
 import Text.Printf (printf)
 import Data.Text (pack)
+import Data.List (nub)
 import Data.Matrix
 import CodeWorld
-import Data.List (nub)
 
 main :: IO ()
 main = do
@@ -140,9 +140,10 @@ drawPoint :: Point -> Picture
 drawPoint (x, y) = colored pointColor (translated x y (solidRectangle 0.1 0.1))
 
 drawStats :: Tetris -> Picture
-drawStats tetris =  moveY 2 (scaleText (stringPic "Score"))        & moveY 1.25 (scaleData (stringPic score))   &
-                    moveY 4 (scaleText (stringPic "Time played"))  & moveY 3.25 (scaleData (stringPic time))    &
-                    moveY 6 (scaleText (stringPic "Bonus"))        & moveY 5.25 (scaleData (stringPic bonus))   &
+drawStats tetris =  moveY 2 (scaleText (stringPic "Score"))       & moveY 1.25 (scaleData (stringPic score))  &
+                    moveY 4 (scaleText (stringPic "Time played")) & moveY 3.25 (scaleData (stringPic time))   &
+                    moveY 6 (scaleText (stringPic "Bonus"))       & moveY 5.25 (scaleData (stringPic bonus))  &
+                    moveY 10 (scaleText (stringPic "Pause"))      & moveY 9.25 (scaleData (stringPic "ESC"))  &
                     moveY (nr-2) (scaleData $ drawNextFigure fig)
   where moveY y = translated (-1.25) y
         scaleText = dilated 0.5
