@@ -15,7 +15,7 @@ import CodeWorld
 runTetris :: IO ()
 runTetris = do
   fgen <- generateRandoms
-  debugActivityOf (startTetris fgen 20 10) manageEvent drawTetris
+  activityOf (startTetris fgen 20 10) manageEvent drawTetris
 
 
 runCustomTetris :: IO ()
@@ -24,7 +24,7 @@ runCustomTetris = do
   cols <- getMinNum "Number of columns" 5
   fgen <- generateRandoms
 
-  debugActivityOf (startTetris fgen rows cols) manageEvent drawTetris
+  activityOf (startTetris fgen rows cols) manageEvent drawTetris
 
 
 generateRandoms :: IO FigureGenerator
@@ -141,18 +141,18 @@ manageGameover _ tetris = tetris
 
 -- Drawing
 -- ----------------------------------------------------------------------------------
+screenWidth, screenHeight :: Double
+screenWidth = 42
+screenHeight = 20
+
 drawTetris :: Tetris -> Picture
-drawTetris tetris = draw tetris & drawBackground $ pf tetris
-  where draw = case st tetris of
+drawTetris tetris = draw tetris & bg
+  where bg = solidRectangle screenWidth screenHeight
+        draw = case st tetris of
                 Start     -> drawStart
                 Normal    -> drawNormal
                 Pause     -> drawPause
                 GameOver  -> drawGameOver
-
-drawBackground :: Playfield -> Picture
-drawBackground pf = solidRectangle x y
-  where y = (fromIntegral $ nrows pf) * 2
-        x = 2*y
 
 -- Start
 drawStart :: Tetris -> Picture
@@ -162,10 +162,12 @@ drawStart tetris = drawTextLines ls
 
 -- Normal
 drawNormal :: Tetris -> Picture
-drawNormal tetris = center $ pictures [ drawFigure (f tetris) pf_, 
-                                        drawPlayfield pf_, 
-                                        drawStats tetris]
-  where center = translated ((-nc'-1)/2) ((-nr'-1)/2)
+drawNormal tetris = scale.center $ ps
+  where ps = pictures [ drawFigure (f tetris) pf_, 
+                        drawPlayfield pf_, 
+                        drawStats tetris]
+        scale = dilated $ 0.75 * (min (screenWidth/nc') (screenHeight/nr'))
+        center = translated ((-nc'-1)/2) ((-nr'-1)/2)
         nr' = fromIntegral $ nrows $ pf_
         nc' = fromIntegral $ ncols $ pf_
         pf_ = pf tetris
@@ -178,10 +180,6 @@ drawFigure f@(ps, ft) pf = draw ps c & draw sps (translucent c)
           where nr' = fromIntegral $ nrows pf
                 f (x,y) ac  | y <= nr'  = (drawSquare (x,y) c):ac
                             | otherwise = ac
-
-drawNextFigure :: Figure -> Picture
-drawNextFigure (ps, ft) = colored green (pictures $ map (\p -> draw p) ps)
-  where draw (x,y) = translated x y (thickRectangle 0.11 0.82 0.82)
 
 drawPlayfield :: Playfield -> Picture
 drawPlayfield pf = pictures [if c /= black then drawSquare p c else drawPoint p |
@@ -197,26 +195,29 @@ drawPoint :: Point -> Picture
 drawPoint (x, y) = colored pointColor (translated x y (solidRectangle 0.1 0.1))
 
 drawStats :: Tetris -> Picture
-drawStats tetris =  moveY 2 (scaleText (stringPic "Score"))       & moveY 1.25 (scaleData (stringPic score))  &
-                    moveY 4 (scaleText (stringPic "Time played")) & moveY 3.25 (scaleData (stringPic time))   &
-                    moveY 6 (scaleText (stringPic "Bonus"))       & moveY 5.25 (scaleData (stringPic bonus))  &
-                    moveY 10 (scaleText (stringPic "Pause"))      & moveY 9.25 (scaleData (stringPic "ESC"))  &
-                    moveY (nr-2) (scaleData $ drawNextFigure fig)
-  where moveY y = translated (-1.25) y
-        scaleText = dilated 0.5
-        scaleData = dilated 0.75
+drawStats tetris =  moveY 1.5 (scaleText (stringPic "Score"))       & moveY 1.1 (scaleData (stringPic score))  &
+                    moveY 2.5 (scaleText (stringPic "Time played")) & moveY 2.1 (scaleData (stringPic time))   &
+                    moveY 3.5 (scaleText (stringPic "Bonus"))       & moveY 3.1 (scaleData (stringPic bonus))  &
+                    moveY 6.5 (scaleText (stringPic "Pause"))       & moveY 6.1 (scaleData (stringPic "ESC"))  &
+                    moveY 8.5 (scaleData $ drawNextFigure fig)
+  where moveY y = translated (-1*k) (y*k) where k = nr'/10
+        scaleText = dilated $ nr' * 0.0225
+        scaleData = dilated $ nr' * 0.04
         score = formatScore $ sc tetris
         time = formatTime $ t tetris
         bonus = formatBonus $ dclk tetris
-        nr = fromIntegral $ nrows $ pf tetris
-        typ = fst $ nextFgen (fgen tetris)
+        nr' = fromIntegral $ nrows $ pf tetris
         fig = centerAxis $ spawnFigure (typ)
-        
+          where typ = fst $ nextFgen (fgen tetris)
+
+drawNextFigure :: Figure -> Picture
+drawNextFigure (ps, ft) = colored green (pictures $ map (\p -> draw p) ps)
+  where draw (x,y) = translated x y (thickRectangle 0.11 0.82 0.82)
+
 centerAxis :: Figure -> Figure
-centerAxis (ps,t) = (ps',t)
-  where ps' = map (\(x,y) -> (x-avg,y)) ps
-        avg = average $ nub [ x | (x,y) <- ps]
-        average xs = (sum xs) / (fromIntegral (length xs))
+centerAxis (ps, ft) = (ps', ft)
+  where ps' | ft == 'O' || ft == 'I' = map (\(x,y) -> (x-0.5,y)) ps
+            | otherwise = ps
 
 -- Pause
 drawPause :: Tetris -> Picture
