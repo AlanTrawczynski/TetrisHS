@@ -194,6 +194,7 @@ drawSquare (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
 drawPoint :: Point -> Picture
 drawPoint (x, y) = colored pointColor (translated x y (solidRectangle 0.1 0.1))
 
+-- Dado un estado tetris, obtenemos un Picture con las estadísticas.
 drawStats :: Tetris -> Picture
 drawStats tetris =  moveY 1.5 (scaleText (stringPic "Score"))       & moveY 1.1 (scaleData (stringPic score))  &
                     moveY 2.5 (scaleText (stringPic "Time played")) & moveY 2.1 (scaleData (stringPic time))   &
@@ -207,13 +208,18 @@ drawStats tetris =  moveY 1.5 (scaleText (stringPic "Score"))       & moveY 1.1 
         time = formatTime $ t tetris
         bonus = formatBonus $ dclk tetris
         nr' = fromIntegral $ nrows $ pf tetris
-        fig = centerAxis $ spawnFigure (typ)
-          where typ = fst $ nextFgen (fgen tetris)
+        fig = centerAxis $ spawnFigure (typ) -- obtenemos el Figure a partir del tipo y lo centramos.
+          where typ = fst $ nextFgen (fgen tetris) -- obtenemos cuál será el tipo de la próxima figura.
 
 drawNextFigure :: Figure -> Picture
 drawNextFigure (ps, ft) = colored green (pictures $ map (\p -> draw p) ps)
   where draw (x,y) = translated x y (thickRectangle 0.11 0.82 0.82)
 
+-- Dado que, los puntos de una figura se sitúan de modo que toman como centro las coordenadas de posición
+-- donde se encuentran y que sus posiciones toman valores discretos sucede que, para figuras que toman posiciones
+-- pares del eje horizontal no se encuentran centradas en el (0,0), sino desplazadas 0.5 en la horizontal.
+-- Esto ocasiona que, las figuras 'I' y 'O' aparezcan descentradas con respecto al resto de estadísticas.
+-- La solución es restar 0.5 en la componente x de cada punto de la figura.
 centerAxis :: Figure -> Figure
 centerAxis (ps, ft) = (ps', ft)
   where ps' | ft == 'O' || ft == 'I' = map (\(x,y) -> (x-0.5,y)) ps
@@ -279,10 +285,15 @@ pointColor = bright yellow
 formatScore:: Score -> String
 formatScore = printf "%05d"
 
+-- Recibe Time y retorna un String en formato mm:ss. t se incrementa cada 16.66ms en 0.01666,
+-- significa esto que tras 1 segundo habrá sumado 60 veces 0.01666 -> 60*0.01666 = 1.
+-- mod t 60 extrae los segundos. div t 60 extrae los minutos. 
 formatTime:: Time -> String
 formatTime t = printf "%02d:%02d" m s
   where (m, s) = divMod (floor t) 60 :: (Int, Int)
 
+-- El bonus se define como la inversa del dclk. A menor dclk mayor bonus ya que se incrementa la 
+-- dificultad.
 formatBonus:: DefaultClock -> String
 formatBonus dclk = printf "x%.2f" (1/dclk)
 -- ----------------------------------------------------------------------------------
@@ -300,6 +311,10 @@ setElem' color (x,y) pf = setElem color (r,c) pf
   where r = (nrows pf) - (round y) + 1
         c = round x
 
+-- Dada una figura y un playfield, comprueba que la figura se encuentre en una posición válida.
+-- Esto es comprobar para cada uno de los puntos que forman la figura:
+-- Que no exceden al playfield a excepción de tres filas por arriba (pozo).
+-- Que no colisionen con ninguna ficha ya asentada.
 validPosition :: Figure -> Playfield -> Bool
 validPosition ([], _) _ = True
 validPosition ((x,y):ps, ft) pf = doesNotExceed && doesNotCollide && validPosition (ps, ft) pf
@@ -308,21 +323,25 @@ validPosition ((x,y):ps, ft) pf = doesNotExceed && doesNotCollide && validPositi
         nr' = fromIntegral $ nrows pf
         nc' = fromIntegral $ ncols pf
 
+-- Dado un playfield y una figura, introduce la figura en el playfield y elimina las filas llenas.
+-- Retorna una tupla con el playfield y una lista con los índices de las filas eliminadas.
 updatePlayfield :: Playfield -> Figure -> (Playfield, [Int])
-updatePlayfield pf ([], _)    = removeFullRows pf
+updatePlayfield pf ([], _)    = removeFullRows pf -- una vez la ficha se ha situado en el playfield se eliminan las filas llenas.
 updatePlayfield pf (p:ps, ft) = updatePlayfield pf' (ps, ft)
-  where pf' = setElem' c p pf
+  where pf' = setElem' c p pf -- situa el color del punto p de la figura en el lugar del playfield sobre el que se encuentra.
         c = figuretypeColor ft
 
 removeFullRows :: Playfield -> (Playfield, [Int])
 removeFullRows pf
   | null is   = (pf,[])
-  | otherwise = (newRows toAdd nc <-> removeRows is pf, is)
+  | otherwise = (newRows toAdd nc <-> removeRows is pf, is) -- El playfield resultante es el obtenido tras eliminar las filas 
+                                                            -- correspondientes y añadir arriba tantas filas en negro como se hayan borrado. 
   where is = fullRows pf -- lista de las filas a eliminar
         toAdd = length is
         nc = ncols pf
 
--- las líneas a introducir arriba de pf si procede. Serán tantas como eliminadas.
+-- Recibe un número de filas un número de columnas y retorna un playfield vacío de 
+-- dichas dimensiones.
 newRows :: Int -> Int -> Playfield
 newRows nr nc = matrix nr nc (\_ -> black)
 
@@ -330,23 +349,32 @@ newRows nr nc = matrix nr nc (\_ -> black)
 fullRows :: Playfield -> [Int]
 fullRows pf = [ row |
                 (row, colors) <- zip [1..] (toLists pf),
-                all (/= black) colors]
+                all (/= black) colors] -- la fila a borrar es aquella que no tiene ninguna posición en negro.
 
+-- Dada una lista de n índices y un playfield, obtiene el playfield resultante de eliminar dichas filas.
+-- El número de filas del playfield resultante será: nr (número de filas del playfield inicial) - n.
 removeRows :: [Int] -> Playfield -> Playfield
 removeRows [] pf = pf
 removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem i toRemove]
   where nr = nrows pf
         pfList = toLists pf
 
+-- moveDown es una función que dado un estado tetris retorna otro producido tras el intento de bajar en una posición
+-- una ficha: Si la ficha bajada se encuentra en una posición válida -> El nuevo estado tendrá como f la ficha bajada.
+-- Si la ficha bajada se encuentra en una posición no válida hay dos posibles situaciones: 
+--    -GameOver si la ficha se encuentra por encima del playfield.
+--    -Un estado con nueva ficha y un actualizado.
 moveDown :: Tetris -> Tetris
 moveDown tetris
-  | validPosition mf pf_  = tetris {f = mf, clk = dclk tetris}
+  | validPosition mf pf_  = tetris {f = mf, clk = dclk tetris} -- clk se reinicia a dclk para que tras un tiempo marcado por dclk la ficha baje automáticamente.
   | isGameOver f_ pf_     = tetris {st = GameOver}
   | otherwise             = placeFigure tetris
   where mf = moveFigure f_ 0 (-1)
         pf_ = pf tetris
         f_ = f tetris
 
+-- Dado un estado tetris, retorna otro con la ficha bajada a la posición más baja posible.
+-- También se debe contemplar si la ficha tras su bajada se encuentra por encima del playfield (GameOver).
 instantDown :: Tetris -> Tetris
 instantDown tetris
   | isGameOver f' pf_ = tetris {st = GameOver}
@@ -354,32 +382,40 @@ instantDown tetris
   where f' = obtainMaxDown (f tetris) pf_
         pf_ = pf tetris
 
+-- Dado un estado tetris crea otro con una nueva figura, el playfield actualizado con la figura actual, dclk actualizado,
+-- clk reiniciado y una actualización sobre los puntos.
 placeFigure :: Tetris -> Tetris
 placeFigure tetris = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk = dclk', sc = sc'}
   where pf_ = pf tetris
         dclk_ = dclk tetris
         (nf, fgen') = nextFigure (fgen tetris) pf_
         (pf', delRows) = updatePlayfield pf_ (f tetris)
-        dclk' = max 0.15 (dclk_-0.01)
-        sc' = (sc tetris) + (round $ n * 100 * (1/dclk_))
+        dclk' = max 0.15 (dclk_-0.01) -- el dclk se actualiza tras cada ficha asentada, para acelerar el juego. 
+        sc' = (sc tetris) + (round $ n * 100 * (1/dclk_)) -- a menor dclk mayor cantidad de puntos obtenidos tras borrar n filas.
           where n = fromIntegral $ length $ delRows
 
+-- Dada una figura y un playfield informa si estamos en una situación de GameOver.
+-- El GameOver se produce si algunos de los puntos de la figura está por encima del playfield.
 isGameOver:: Figure -> Playfield -> Bool
 isGameOver (ps, _) pf = any (>ceil) (map snd ps)
   where ceil = fromIntegral $ nrows pf
 
+-- Retorna un estado con la figura movida a la izquierda en caso de poder, sino puede mantiene su posición actual.
 moveLeft :: Tetris -> Tetris
 moveLeft tetris
   | validPosition mf (pf tetris) = tetris {f = mf}
   | otherwise = tetris
   where mf = moveFigure (f tetris) (-1) 0
 
+-- Retorna un estado con la figura movida a la derecha, en caso de no poder la mantiene en su posición actual.
 moveRight :: Tetris -> Tetris
 moveRight tetris
   | validPosition mf (pf tetris) = tetris {f = mf}
   | otherwise = tetris
   where mf = moveFigure (f tetris) 1 0
 
+-- Dada una figura y dos números de tipo Double que llamaremos dx y dy se obtiene la figura resultante de sumar a la
+-- posición x e y de cada punto que forma la figura dx y dy respectivamente.
 moveFigure :: Figure -> Double -> Double -> Figure
 moveFigure (ps, ft) dx dy = (move ps, ft)
   where move [] = []
@@ -465,8 +501,9 @@ rotatePoints center ps dir = map (rotate center) ps
           R -> (yi-yo+xo, -(xi-xo)+yo)
           L -> (-(yi-yo)+xo, xi-xo+yo)
 
--- en caso de no haber ninguna ficha parada abajo m será 0 -> ¿Por qué 0 y no 1? que m fuera 1 significaría que hay
--- una ficha en la fila uno, entonces la sombra se ubicaría en la fila 2 -> df = y - 1. ys = y - (y-1) + 1 = 2.
+-- Dada una figura y un playfield, retorna otra figura con la posición más baja posible manteniendo la misma posición
+-- horizontal de la original. El cálculo se basa en calcular las distancias de cada punto de la figura, con el elemento
+-- más alto del playfield, tomar la menor y restársela a la componente y de cada punto.
 obtainMaxDown :: Figure -> Playfield -> Figure
 obtainMaxDown (ps,t) pf = (sps,t)
   where sps = map (\(x,y) -> (x, y-yDif+1)) ps
@@ -476,7 +513,8 @@ obtainMaxDown (ps,t) pf = (sps,t)
                                     y2 <- [y, y-1..1],
                                     y2 <= nr',
                                     pf !. (x,y2) /= black],
-                        let maxNotEmptyRow = if null ys2 then 0 else head ys2]
+                        let maxNotEmptyRow = if null ys2 then 0 else head ys2] -- si no hay ningún punto asentado debajo del punto (x,y) de la ficha,
+                                                                               -- maxNotEmptyRow estará a 0.
         nr' = fromIntegral $ nrows pf
 -- ----------------------------------------------------------------------------------
 
