@@ -95,8 +95,8 @@ Todo el código se encuentra en un único archivo, el módulo Tetris, que export
     (!.) :: Playfield -> Point -> Color
     setElem' :: Color -> Point -> Playfield -> Playfield
     validPosition :: Figure -> Playfield -> Bool
-    updatePlayfield :: Playfield -> Figure -> (Playfield, [Int])
-    removeFullRows :: Playfield -> (Playfield, [Int])
+    updatePlayfield :: Playfield -> Figure -> (Playfield, Int)
+    removeFullRows :: Playfield -> (Playfield, Int)
     newRows :: Int -> Int -> Playfield
     fullRows :: Playfield -> [Int]
     removeRows :: [Int] -> Playfield -> Playfield
@@ -269,7 +269,100 @@ nextFgen (current:next:next2:rest)
 ```
 ### Funciones con case of
 
-
+1. manageEvent.
+```
+manageEvent event tetris = manager event tetris
+  where manager = case st tetris of
+                    Start     -> manageStart
+                    Normal    -> manageNormal
+                    Pause     -> managePause
+                    GameOver  -> manageGameover
+```
+2. manageNormal.
+```
+manageNormal (TimePassing dt) tetris
+  | clk tetris < 0  = moveDown tetris
+  | otherwise       = tetris {t = (t tetris)+dt, clk = (clk tetris)-dt}
+manageNormal (KeyRelease k) tetris = case k of
+  "Esc" -> tetris {st = Pause}
+  "C"   -> instantDown tetris
+  _     -> tetris
+manageNormal (KeyPress k) tetris = case k of
+  "Up"    -> tryRotateFigureRight tetris
+  "Z"     -> tryRotateFigureLeft tetris
+  "Down"  -> moveDown tetris
+  "Left"  -> moveLeft tetris
+  "Right" -> moveRight tetris
+  _       -> tetris
+manageNormal _ tetris = tetris
+```
+3. drawTetris.
+```
+drawTetris tetris = draw tetris & bg
+  where bg = solidRectangle screenWidth screenHeight
+        draw = case st tetris of
+                Start     -> drawStart
+                Normal    -> drawNormal
+                Pause     -> drawPause
+                GameOver  -> drawGameOver
+```
+4. figuretypeColor.
+```
+figuretypeColor ft = dull $ case ft of
+  'O' -> yellow
+  'I' -> light blue
+  'L' -> orange
+  'J' -> blue
+  'S' -> red
+  'Z' -> green
+  'T' -> purple
+```
+5. spawnFigure.
+```
+spawnFigure n = case n of
+  1 -> ([(0,1),   (1,1),    (0,2),    (1,2)],   'O')
+  2 -> ([(-1,1),  (0,1),    (1,1),    (2,1)],   'I')
+  3 -> ([(0,1),   (-1,1),   (1,1),    (1,2)],   'L')
+  4 -> ([(0,1),   (-1,1),   (1,1),    (-1,2)],  'J')
+  5 -> ([(0,1),   (-1,1),   (0,2),    (1,2)],   'S')
+  6 -> ([(0,1),   (1,1),    (-1,2),   (0,2)],   'Z')
+  7 -> ([(0,1),   (-1,1),   (1,1),    (0,2)],   'T')
+```
+6. tryRotateFigure.
+```
+tryRotateFigure tetris dir = case maybef' of
+  Nothing -> tetris
+  Just f' -> tetris {f = f'}
+  where maybef' = safeHead $ filter (\f -> validPosition f (pf tetris)) (map ($rf) mvs)
+        rf = rotateFigure (f tetris) dir
+        mvs = [ \x -> moveFigure x 0    0,
+                \x -> moveFigure x 1    0,
+                \x -> moveFigure x (-1) 0,
+                \x -> moveFigure x 2    0,
+                \x -> moveFigure x (-2) 0]
+```
+7. rotateFigure.
+```
+rotateFigure (ps, ft) dir = case ft of
+  'O' -> (ps, ft)
+  'I' -> (ps', ft)
+    where ps' = rotatePoints center ps dir
+          [_,(x1,y1),(x2,y2),_] = ps
+          center  | x1 < x2 = ((x1+x2)/2, y1-0.5)
+                  | x1 > x2 = ((x1+x2)/2, y1+0.5)
+                  | y1 > y2 = (x1-0.5, (y1+y2)/2)
+                  | y1 < y2 = (x1+0.5, (y1+y2)/2)
+  ft   -> (ps', ft)
+    where ps' = center:(rotatePoints center rest dir)
+          (center:rest) = ps
+```
+8. rotatePoints.
+```
+rotatePoints center ps dir = map (rotate center) ps
+  where rotate (xo,yo) (xi,yi) = case dir of
+          R -> (yi-yo+xo, -(xi-xo)+yo)
+          L -> (-(yi-yo)+xo, xi-xo+yo)
+```
 ### Funciones con listas por comprensión
 
 ### Funciones con orden superior
