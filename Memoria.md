@@ -101,7 +101,7 @@ Todo el código se encuentra en un único archivo, el módulo Tetris, que export
     fullRows :: Playfield -> [Int]
     removeRows :: [Int] -> Playfield -> Playfield
     moveDown :: Tetris -> Tetris
-    instantDown :: Tetris -> Tetris
+    hardDrop :: Tetris -> Tetris
     placeFigure :: Tetris -> Tetris
     isGameOver :: Figure -> Playfield -> Bool
     moveLeft :: Tetris -> Tetris
@@ -118,7 +118,7 @@ Todo el código se encuentra en un único archivo, el módulo Tetris, que export
     tryRotateFigure :: Tetris -> Direction -> Tetris
     rotateFigure :: Figure -> Direction -> Figure
     rotatePoints :: Point -> [Point] -> Direction -> [Point]
-    obtainMaxDown :: Figure -> Playfield -> Figure
+    shadowFigure :: Figure -> Playfield -> Figure
     ```
 
 ## Requisitos
@@ -239,12 +239,12 @@ moveDown tetris
         pf_ = pf tetris
         f_ = f tetris
 ``` 
-3. instantDown.
+3. hardDrop.
 ```
-instantDown tetris
+hardDrop tetris
   | isGameOver f' pf_ = tetris {st = GameOver}
   | otherwise         = placeFigure $ tetris {f = f'}
-  where f' = obtainMaxDown (f tetris) pf_
+  where f' = shadowFigure (f tetris) pf_
         pf_ = pf tetris
 ```
 4. moveLeft.
@@ -268,7 +268,6 @@ nextFgen (current:next:next2:rest)
   | otherwise       = (next2, next2:rest)
 ```
 ### Funciones con case of
-
 1. manageEvent.
 ```
 manageEvent event tetris = manager event tetris
@@ -285,7 +284,7 @@ manageNormal (TimePassing dt) tetris
   | otherwise       = tetris {t = (t tetris)+dt, clk = (clk tetris)-dt}
 manageNormal (KeyRelease k) tetris = case k of
   "Esc" -> tetris {st = Pause}
-  "C"   -> instantDown tetris
+  "C"   -> hardDrop tetris
   _     -> tetris
 manageNormal (KeyPress k) tetris = case k of
   "Up"    -> tryRotateFigureRight tetris
@@ -364,7 +363,48 @@ rotatePoints center ps dir = map (rotate center) ps
           L -> (-(yi-yo)+xo, xi-xo+yo)
 ```
 ### Funciones con listas por comprensión
-
+1. drawPlayfield.
+```
+drawPlayfield pf = pictures [if c /= black then drawSquare p c else drawPoint p |
+                            row <- [1..nrows pf],
+                            col <- [1..ncols pf],
+                            let p = (fromIntegral col, fromIntegral row),
+                            let c = pf !. p]
+```
+2. drawTextLines.
+```
+drawTextLines ls = pictures [translated 0 y (stringPic l) | (l, y) <- zip ls [n, n-1..]]
+  where n = (genericLength ls)/2 - 0.5
+```
+3. removeFullRows.
+```
+removeFullRows pf
+  | null is   = (pf,0)
+  | otherwise = (newRows toAdd nc <-> removeRows is pf, toAdd)
+  where is = fullRows pf
+        toAdd = length is
+        nc = ncols pf
+```
+4. removeRows.
+```
+removeRows [] pf = pf
+removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem i toRemove]
+  where nr = nrows pf
+        pfList = toLists pf
+```
+5. shadowFigure.
+```
+shadowFigure (ps,t) pf = (sps,t)
+  where sps = map (\(x,y) -> (x, y-yDif+1)) ps
+        yDif = minimum [y - maxNotEmptyRow |
+                        (x,y) <- ps,
+                        let ys2 = [ y2 |
+                                    y2 <- [y, y-1..1],
+                                    y2 <= nr',
+                                    pf !. (x,y2) /= black],
+                        let maxNotEmptyRow = if null ys2 then 0 else head ys2]
+        nr' = fromIntegral $ nrows pf
+```
 ### Funciones con orden superior
 
 ### Funciones con evaluación perezosa

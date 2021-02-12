@@ -119,7 +119,7 @@ manageNormal (TimePassing dt) tetris
   | otherwise       = tetris {t = (t tetris)+dt, clk = (clk tetris)-dt}
 manageNormal (KeyRelease k) tetris = case k of
   "Esc" -> tetris {st = Pause}
-  "C"   -> instantDown tetris
+  "C"   -> hardDrop tetris
   _     -> tetris
 manageNormal (KeyPress k) tetris = case k of
   "Up"    -> tryRotateFigureRight tetris
@@ -175,7 +175,7 @@ drawNormal tetris = scale.center $ ps
 drawFigure :: Figure -> Playfield -> Picture
 drawFigure f@(ps, ft) pf = draw ps c & draw sps (translucent c)
   where c = figuretypeColor ft
-        (sps, _) = obtainMaxDown f pf
+        (sps, _) = shadowFigure f pf
         draw ps c = pictures $ foldr f [] ps
           where nr' = fromIntegral $ nrows pf
                 f (x,y) ac  | y <= nr'  = (drawSquare (x,y) c):ac
@@ -375,11 +375,11 @@ moveDown tetris
 
 -- Dado un estado tetris, retorna otro con la ficha bajada a la posición más baja posible.
 -- También se debe contemplar si la ficha tras su bajada se encuentra por encima del playfield (GameOver).
-instantDown :: Tetris -> Tetris
-instantDown tetris
+hardDrop :: Tetris -> Tetris
+hardDrop tetris
   | isGameOver f' pf_ = tetris {st = GameOver}
   | otherwise         = placeFigure $ tetris {f = f'}
-  where f' = obtainMaxDown (f tetris) pf_
+  where f' = shadowFigure (f tetris) pf_
         pf_ = pf tetris
 
 -- Dado un estado tetris crea otro con una nueva figura, el playfield actualizado con la figura actual, dclk actualizado,
@@ -495,8 +495,8 @@ rotatePoints center ps dir = map (rotate center) ps
 -- Dada una figura y un playfield, retorna otra figura con la posición más baja posible manteniendo la misma posición
 -- horizontal de la original. El cálculo se basa en calcular las distancias de cada punto de la figura, con el elemento
 -- más alto del playfield, tomar la menor y restársela a la componente y de cada punto.
-obtainMaxDown :: Figure -> Playfield -> Figure
-obtainMaxDown (ps,t) pf = (sps,t)
+shadowFigure :: Figure -> Playfield -> Figure
+shadowFigure (ps,t) pf = (sps,t)
   where sps = map (\(x,y) -> (x, y-yDif+1)) ps
         yDif = minimum [y - maxNotEmptyRow |
                         (x,y) <- ps,
