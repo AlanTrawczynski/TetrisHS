@@ -1,5 +1,5 @@
 <style>
-    p {text-align: justify}
+    * {text-align: justify}
 </style>
 
 # Memoria de trabajo: TetrisHS
@@ -32,7 +32,7 @@ Todo el código se encuentra en un único archivo, el módulo Tetris, que export
     runTetris :: IO ()
     runCustomTetris :: IO ()
     generateRandoms :: IO FigureGenerator
-    getMinNum:: String -> Int -> IO Int
+    getMinNum :: String -> Int -> IO Int
     ```
 2. **Types**: define todos los tipos de datos que se utilizan posteriormente.  
     ```
@@ -52,7 +52,7 @@ Todo el código se encuentra en un único archivo, el módulo Tetris, que export
     ```
     startTetris :: FigureGenerator -> Int -> Int -> Tetris
     initTetris :: FigureGenerator -> Int -> Int -> Tetris
-    newGame:: Tetris -> Tetris
+    newGame :: Tetris -> Tetris
     ```
 4. **Events**: define los manejadores de eventos utilizados por *CodeWorld* que modificarán el estado de *Tetris* y permitirán el avance del juego.
     ```
@@ -76,19 +76,19 @@ Todo el código se encuentra en un único archivo, el módulo Tetris, que export
     drawNextFigure :: Figure -> Picture
     centerAxis :: Figure -> Figure
     drawPause :: Tetris -> Picture
-    drawControl:: Picture
+    drawControl :: Picture
     drawGameOver :: Tetris -> Picture
     drawTitle :: String -> Picture
-    drawTextLines:: [String] -> Picture
-    stringPic:: String -> Picture
+    drawTextLines :: [String] -> Picture
+    stringPic :: String -> Picture
     ```
 6. **Color & format**: define funciones que definen el color y formato utilizado en el dibuajdo.
     ```
     figuretypeColor :: FigureType -> Color
-    pointColor:: Color
-    formatScore:: Score -> String
-    formatTime:: Time -> String
-    formatBonus:: DefaultClock -> String
+    pointColor :: Color
+    formatScore :: Score -> String
+    formatTime :: Time -> String
+    formatBonus :: DefaultClock -> String
     ```
 7. **Tetris**: define funciones y operadores encargados de interactuar con los diferentes atributos que conforman *Tetris*. Modifica los estados del juego, procesa los movimientos de la figura actual, elimina filas llenas, comprueba si el juego ha acabado, etc.
     ```
@@ -103,7 +103,7 @@ Todo el código se encuentra en un único archivo, el módulo Tetris, que export
     moveDown :: Tetris -> Tetris
     instantDown :: Tetris -> Tetris
     placeFigure :: Tetris -> Tetris
-    isGameOver:: Figure -> Playfield -> Bool
+    isGameOver :: Figure -> Playfield -> Bool
     moveLeft :: Tetris -> Tetris
     moveRight :: Tetris -> Tetris
     moveFigure :: Figure -> Double -> Double -> Figure
@@ -121,15 +121,43 @@ Todo el código se encuentra en un único archivo, el módulo Tetris, que export
     obtainMaxDown :: Figure -> Playfield -> Figure
     ```
 
-
-
 ## Requisitos
 ### Funciones de Prelude
-1. ...  
-    `code`
-2. ...  
-    `code`
-
+En la mayoría de funciones definidas se utilizan funciones de Prelude, pondremos de ejemplo solamente algunas de ellas:
+1. generateFigure: `map`, `even`, `fromIntegral`, `($)`.
+  ```
+  generateFigure n pf = (ps', ft)
+    where ps' = map (\(x, y) -> (x+dx, y+dy)) ps
+          (ps, ft) = spawnFigure n
+          dx  | even nc                 = nc'/2
+              | ft == 'I' || ft == 'O'  = nc'/2 - 0.5
+              | otherwise               = nc'/2 + 0.5
+          dy = nr' + 1
+          nc = ncols pf
+          nc' = fromIntegral nc
+          nr' = fromIntegral $ nrows pf
+  ```
+2. formatTime: `divMod`, `floor`.
+  ```
+  formatTime t = printf "%02d:%02d" m s
+    where (m, s) = divMod (floor t) 60 :: (Int, Int)
+  ```
+3. removeRows: `zip`, `notElem`.
+  ```
+  removeRows [] pf = pf
+  removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem i toRemove]
+    where nr = nrows pf
+          pfList = toLists pf
+  ```
+4. removeFullRows: `length`, `null`.
+  ```
+  removeFullRows pf
+    | null is   = (pf,[])
+    | otherwise = (newRows toAdd nc <-> removeRows is pf, is) 
+    where is = fullRows pf
+          toAdd = length is
+          nc = ncols pf
+  ```
 ### Funciones de Data.List
 
 ### Funciones recursivas
