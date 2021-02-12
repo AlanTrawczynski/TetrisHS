@@ -406,9 +406,85 @@ shadowFigure (ps,t) pf = (sps,t)
         nr' = fromIntegral $ nrows pf
 ```
 ### Funciones con orden superior
+1. drawFigure: `foldr`.
+```
+drawFigure f@(ps, ft) pf = draw ps c & draw sps (translucent c)
+  where c = figuretypeColor ft
+        (sps, _) = shadowFigure f pf
+        draw ps c = pictures $ foldr f [] ps
+          where nr' = fromIntegral $ nrows pf
+                f (x,y) ac  | y <= nr'  = (drawSquare (x,y) c):ac
+                            | otherwise = ac
+```
+2. drawNextFigure: `map`.
+```
+drawNextFigure (ps, ft) = colored green (pictures $ map (\p -> draw p) ps)
+  where draw (x,y) = translated x y (thickRectangle 0.11 0.82 0.82)
+```
+3. fullRows: `map`.
+```
+fullRows pf = map (+1) (findIndices p (toLists pf))
+  where p = all (/= black)
+```
+4. generateFigure: `map`.
+```
+generateFigure n pf = (ps', ft)
+  where ps' = map (\(x, y) -> (x+dx, y+dy)) ps
+        (ps, ft) = spawnFigure n
+        dx  | even nc                 = nc'/2
+            | ft == 'I' || ft == 'O'  = nc'/2 - 0.5
+            | otherwise               = nc'/2 + 0.5
+        dy = nr' + 1
+        nc = ncols pf
+        nc' = fromIntegral nc
+        nr' = fromIntegral $ nrows pf
+```
+5. shadowFigure: `map`.
+```
+shadowFigure (ps,t) pf = (sps,t)
+  where sps = map (\(x,y) -> (x, y-yDif+1)) ps
+        yDif = minimum [y - maxNotEmptyRow |
+                        (x,y) <- ps,
+                        let ys2 = [ y2 |
+                                    y2 <- [y, y-1..1],
+                                    y2 <= nr',
+                                    pf !. (x,y2) /= black],
+                        let maxNotEmptyRow = if null ys2 then 0 else head ys2]                       
+        nr' = fromIntegral $ nrows pf
+```
 
+6. tryRotateFigure: `filter`.
+```
+tryRotateFigure tetris dir = case maybef' of
+  Nothing -> tetris
+  Just f' -> tetris {f = f'}
+  where maybef' = safeHead $ filter (\f -> validPosition f (pf tetris)) (map ($rf) mvs)
+        rf = rotateFigure (f tetris) dir
+        mvs = [ \x -> moveFigure x 0    0,
+                \x -> moveFigure x 1    0,
+                \x -> moveFigure x (-1) 0,
+                \x -> moveFigure x 2    0,
+                \x -> moveFigure x (-2) 0]
+```
 ### Funciones con evaluación perezosa
-
+1. isGameOver.
+```
+isGameOver (ps, _) pf = any (>ceil) (map snd ps)
+  where ceil = fromIntegral $ nrows pf
+```
+2. tryRotateFigure.
+```
+tryRotateFigure tetris dir = case maybef' of
+  Nothing -> tetris
+  Just f' -> tetris {f = f'}
+  where maybef' = safeHead $ filter (\f -> validPosition f (pf tetris)) (map ($rf) mvs)
+        rf = rotateFigure (f tetris) dir
+        mvs = [ \x -> moveFigure x 0    0,
+                \x -> moveFigure x 1    0,
+                \x -> moveFigure x (-1) 0,
+                \x -> moveFigure x 2    0,
+                \x -> moveFigure x (-2) 0]
+```
 ### ...
 
 ### Módulo
