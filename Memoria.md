@@ -223,9 +223,52 @@ safeHead [] = Nothing
 safeHead l = Just $ head l
 ```
 ### Funciones con guardas
-
-
+1. centerAxis.
+```
+centerAxis (ps, ft) = (ps', ft)
+  where ps' | ft == 'O' || ft == 'I' = map (\(x,y) -> (x-0.5,y)) ps
+            | otherwise = ps
+```
+2. moveDown.
+```
+moveDown tetris
+  | validPosition mf pf_  = tetris {f = mf, clk = dclk tetris} 
+  | isGameOver f_ pf_     = tetris {st = GameOver}
+  | otherwise             = placeFigure tetris
+  where mf = moveFigure f_ 0 (-1)posición hacia abajo.
+        pf_ = pf tetris
+        f_ = f tetris
+``` 
+3. instantDown.
+```
+instantDown tetris
+  | isGameOver f' pf_ = tetris {st = GameOver}
+  | otherwise         = placeFigure $ tetris {f = f'}
+  where f' = obtainMaxDown (f tetris) pf_
+        pf_ = pf tetris
+```
+4. moveLeft.
+```
+moveLeft tetris
+  | validPosition mf (pf tetris) = tetris {f = mf}
+  | otherwise = tetris
+  where mf = moveFigure (f tetris) (-1) 0
+```
+5. moveRight.
+```
+moveRight tetris
+  | validPosition mf (pf tetris) = tetris {f = mf}
+  | otherwise = tetris
+  where mf = moveFigure (f tetris) 1 0
+```
+6. nextFgen.
+```
+nextFgen (current:next:next2:rest)
+  | current /= next = (next, next:rest)
+  | otherwise       = (next2, next2:rest)
+```
 ### Funciones con case of
+
 
 ### Funciones con listas por comprensión
 
