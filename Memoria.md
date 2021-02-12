@@ -159,7 +159,16 @@ En la mayoría de funciones definidas se utilizan funciones de Prelude, pondremo
           nc = ncols pf
   ```
 ### Funciones de Data.List
-
+1. fullRows: `findIndices`.
+  ```
+  fullRows pf = map (+1) (findIndices p (toLists pf))
+    where p = all (/= black)
+  ```
+2. drawTextLines: `genericLength`.
+  ```
+  drawTextLines ls = pictures [translated 0 y (stringPic l) | (l, y) <- zip ls [n, n-1..]]
+    where n = (genericLength ls)/2 - 0.5
+  ```
 ### Funciones recursivas
 
 ### Funciones por patrones

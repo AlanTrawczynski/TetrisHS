@@ -1,11 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Tetris (runTetris, runCustomTetris) where
 
+import Data.List (genericLength, findIndices)
 import System.Random (getStdGen, randomRs)
 import Text.Printf (printf)
 import Data.Char (isDigit)
 import Data.Text (pack)
-import Data.List (nub)
 import Data.Matrix
 import CodeWorld
 
@@ -163,8 +163,8 @@ drawStart tetris = drawTextLines ls
 -- Normal
 drawNormal :: Tetris -> Picture
 drawNormal tetris = scale.center $ ps
-  where ps = pictures [ drawFigure (f tetris) pf_, 
-                        drawPlayfield pf_, 
+  where ps = pictures [ drawFigure (f tetris) pf_,
+                        drawPlayfield pf_,
                         drawStats tetris]
         scale = dilated $ 0.75 * (min (screenWidth/nc') (screenHeight/nr'))
         center = translated ((-nc'-1)/2) ((-nr'-1)/2)
@@ -201,7 +201,7 @@ drawStats tetris =  moveY 1.5 (scaleText (stringPic "Score"))       & moveY 1.1 
                     moveY 3.5 (scaleText (stringPic "Bonus"))       & moveY 3.1 (scaleData (stringPic bonus))  &
                     moveY 6.5 (scaleText (stringPic "Pause"))       & moveY 6.1 (scaleData (stringPic "ESC"))  &
                     moveY 8.5 (scaleData $ drawNextFigure fig)
-  where moveY y = translated (-1*k) (y*k) where k = nr'/10 
+  where moveY y = translated (-1*k) (y*k) where k = nr'/10
         scaleText = dilated $ nr' * 0.0225
         scaleData = dilated $ nr' * 0.04
         score = formatScore $ sc tetris
@@ -252,7 +252,7 @@ drawGameOver tetris = drawTitle "GAME OVER" & translated 0 (-1.5) text
                               "", "",
                               "Press N to",
                               "start a new game"]
-        
+
 -- Generic functions
 drawTitle :: String -> Picture
 drawTitle title = translate.scale $ stringPic title
@@ -261,7 +261,7 @@ drawTitle title = translate.scale $ stringPic title
 
 drawTextLines:: [String] -> Picture
 drawTextLines ls = pictures [translated 0 y (stringPic l) | (l, y) <- zip ls [n, n-1..]]
-  where n = (fromIntegral $ length ls)/2 - 0.5
+  where n = (genericLength ls)/2 - 0.5
 
 stringPic:: String -> Picture
 stringPic = (colored green).(styledLettering Plain Monospace).pack
@@ -288,12 +288,12 @@ formatScore = printf "%05d"
 
 -- Recibe Time y retorna un String en formato mm:ss. t se incrementa cada 16.66ms en 0.01666,
 -- significa esto que tras 1 segundo habrá sumado 60 veces 0.01666 -> 60*0.01666 = 1.
--- mod t 60 extrae los segundos. div t 60 extrae los minutos. 
+-- mod t 60 extrae los segundos. div t 60 extrae los minutos.
 formatTime:: Time -> String
 formatTime t = printf "%02d:%02d" m s
   where (m, s) = divMod (floor t) 60 :: (Int, Int)
 
--- El bonus se define como la inversa del dclk. A menor dclk mayor bonus ya que se incrementa la 
+-- El bonus se define como la inversa del dclk. A menor dclk mayor bonus ya que se incrementa la
 -- dificultad.
 formatBonus:: DefaultClock -> String
 formatBonus dclk = printf "x%.2f" (1/dclk)
@@ -335,22 +335,21 @@ updatePlayfield pf (p:ps, ft) = updatePlayfield pf' (ps, ft)
 removeFullRows :: Playfield -> (Playfield, Int)
 removeFullRows pf
   | null is   = (pf,0)
-  | otherwise = (newRows toAdd nc <-> removeRows is pf, toAdd) -- El playfield resultante es el obtenido tras eliminar las filas 
-                                                            -- correspondientes y añadir arriba tantas filas en negro como se hayan borrado. 
+  | otherwise = (newRows toAdd nc <-> removeRows is pf, toAdd) -- El playfield resultante es el obtenido tras eliminar las filas
+                                                            -- correspondientes y añadir arriba tantas filas en negro como se hayan borrado.
   where is = fullRows pf -- lista de las filas a eliminar
         toAdd = length is
         nc = ncols pf
 
--- Recibe un número de filas un número de columnas y retorna un playfield vacío de 
+-- Recibe un número de filas un número de columnas y retorna un playfield vacío de
 -- dichas dimensiones.
 newRows :: Int -> Int -> Playfield
 newRows nr nc = matrix nr nc (\_ -> black)
 
 -- fullRows es la función encargada de obtener una lista de índices con las filas a borrar.
 fullRows :: Playfield -> [Int]
-fullRows pf = [ row |
-                (row, colors) <- zip [1..] (toLists pf),
-                all (/= black) colors] -- la fila a borrar es aquella que no tiene ninguna posición en negro.
+fullRows pf = map (+1) (findIndices p (toLists pf))
+  where p = all (/= black) -- la fila a borrar es aquella que no tiene ninguna posición en negro.
 
 -- Dada una lista de n índices y un playfield, obtiene el playfield resultante de eliminar dichas filas.
 -- El número de filas del playfield resultante será: nr (número de filas del playfield inicial) - n.
@@ -362,7 +361,7 @@ removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem
 
 -- moveDown es una función que dado un estado tetris retorna otro producido tras el intento de bajar en una posición
 -- una ficha: Si la ficha bajada se encuentra en una posición válida -> El nuevo estado tendrá como f la ficha bajada.
--- Si la ficha bajada se encuentra en una posición no válida hay dos posibles situaciones: 
+-- Si la ficha bajada se encuentra en una posición no válida hay dos posibles situaciones:
 --    -GameOver si la ficha no bajada se encuentra por encima del playfield.
 --    -Un estado con nueva ficha y un playfield actualizado.
 moveDown :: Tetris -> Tetris
@@ -391,7 +390,7 @@ placeFigure tetris = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk =
         dclk_ = dclk tetris
         (nf, fgen') = nextFigure (fgen tetris) pf_
         (pf', delRows) = updatePlayfield pf_ (f tetris)
-        dclk' = max 0.15 (dclk_-0.01) -- el dclk se actualiza tras cada ficha asentada, para acelerar el juego. 
+        dclk' = max 0.15 (dclk_-0.01) -- el dclk se actualiza tras cada ficha asentada, para acelerar el juego.
         sc' = (sc tetris) + (round $ n * 100 * (1/dclk_)) -- a menor dclk mayor cantidad de puntos obtenidos tras borrar n filas.
           where n = fromIntegral $ delRows
 
@@ -499,9 +498,9 @@ rotatePoints center ps dir = map (rotate center) ps
 obtainMaxDown :: Figure -> Playfield -> Figure
 obtainMaxDown (ps,t) pf = (sps,t)
   where sps = map (\(x,y) -> (x, y-yDif+1)) ps
-        yDif = minimum [y - maxNotEmptyRow | 
-                        (x,y) <- ps, 
-                        let ys2 = [ y2 | 
+        yDif = minimum [y - maxNotEmptyRow |
+                        (x,y) <- ps,
+                        let ys2 = [ y2 |
                                     y2 <- [y, y-1..1],
                                     y2 <= nr',
                                     pf !. (x,y2) /= black],
