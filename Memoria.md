@@ -193,8 +193,37 @@ moveFigure (ps, ft) dx dy = (move ps, ft)
         move ((x,y):r) = (x+dx, y+dy):(move r)
 ```
 ### Funciones por patrones
-
+1. manageStart.
+```
+manageStart (KeyRelease _) tetris = tetris {st = Normal}
+manageStart _ tetris = tetris
+```
+2. managePause.
+```
+managePause (KeyRelease "Esc") tetris = tetris {st = Normal}
+managePause (KeyRelease "N") tetris = newGame tetris
+managePause _ tetris = tetris
+```
+3. manageGameover.
+```
+manageGameover (KeyRelease "N") tetris = newGame tetris
+manageGameover _ tetris = tetris
+```
+4. removeRows.
+```
+removeRows [] pf = pf
+removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem i toRemove]
+  where nr = nrows pf
+        pfList = toLists pf
+```
+5. safeHead.
+```
+safeHead:: [a] -> Maybe a
+safeHead [] = Nothing
+safeHead l = Just $ head l
+```
 ### Funciones con guardas
+
 
 ### Funciones con case of
 
