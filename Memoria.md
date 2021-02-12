@@ -467,12 +467,21 @@ tryRotateFigure tetris dir = case maybef' of
                 \x -> moveFigure x (-2) 0]
 ```
 ### Funciones con evaluación perezosa
-1. isGameOver.
+1. **FigureGenerator**: este tipo y las funciones que hacen uso de él son el ejemplo más claro de evaluación perezosa, puesto que se encarga de almacenar una lista infinita de números enteros. En caso de que Haskell realizara una evaluación impaciente de los parámetros, el procesamiento de la lista infinita nunca acabaría.
+```
+type FigureGenerator = [Int]
+
+nextFgen :: FigureGenerator -> (Int, FigureGenerator)
+nextFgen (current:next:next2:rest)
+  | current /= next = (next, next:rest)
+  | otherwise       = (next2, next2:rest)
+```
+2. **isGameOver**: la operación que realiza `map` sobre la lista `ps` no es evaluada hasta que el valor sea requerido por la función `any`, de esta forma evitaremos el procesamiento de aquellos elementos de `ps` posteriores al primero que cumpla el predicado `>ceil`.
 ```
 isGameOver (ps, _) pf = any (>ceil) (map snd ps)
   where ceil = fromIntegral $ nrows pf
 ```
-2. tryRotateFigure.
+3. **tryRotateFigure**: el papel que juega la evaluación perezosa en esta función es similar al visto en *isGameOver*, pero más complejo. Se realizarán los cálculos necesarios únicamente hasta encontrar el primer elemento (resultante de aplicar `map`) que no sea filtrado por la función `filter`.
 ```
 tryRotateFigure tetris dir = case maybef' of
   Nothing -> tetris
