@@ -201,7 +201,7 @@ drawStats tetris =  moveY 1.5 (scaleText (stringPic "Score"))       & moveY 1.1 
                     moveY 3.5 (scaleText (stringPic "Bonus"))       & moveY 3.1 (scaleData (stringPic bonus))  &
                     moveY 6.5 (scaleText (stringPic "Pause"))       & moveY 6.1 (scaleData (stringPic "ESC"))  &
                     moveY 8.5 (scaleData $ drawNextFigure fig)
-  where moveY y = translated (-1*k) (y*k) where k = nr'/10
+  where moveY y = translated (-1*k) (y*k) where k = nr'/10 
         scaleText = dilated $ nr' * 0.0225
         scaleData = dilated $ nr' * 0.04
         score = formatScore $ sc tetris
@@ -211,6 +211,7 @@ drawStats tetris =  moveY 1.5 (scaleText (stringPic "Score"))       & moveY 1.1 
         fig = centerAxis $ spawnFigure (typ) -- obtenemos el Figure a partir del tipo y lo centramos.
           where typ = fst $ nextFgen (fgen tetris) -- obtenemos cuál será el tipo de la próxima figura.
 
+-- Dada una figura se genera un picture con un estilo concreto. Se usa para mostrar la siguiente figura en stats.
 drawNextFigure :: Figure -> Picture
 drawNextFigure (ps, ft) = colored green (pictures $ map (\p -> draw p) ps)
   where draw (x,y) = translated x y (thickRectangle 0.11 0.82 0.82)
@@ -313,28 +314,28 @@ setElem' color (x,y) pf = setElem color (r,c) pf
 
 -- Dada una figura y un playfield, comprueba que la figura se encuentre en una posición válida.
 -- Esto es comprobar para cada uno de los puntos que forman la figura:
--- Que no exceden al playfield a excepción de tres filas por arriba (pozo).
--- Que no colisionen con ninguna ficha ya asentada.
+--  -Que no excedan al playfield a excepción de tres filas por arriba (pozo).
+--  -Que no colisionen con ninguna ficha ya asentada.
 validPosition :: Figure -> Playfield -> Bool
 validPosition ([], _) _ = True
 validPosition ((x,y):ps, ft) pf = doesNotExceed && doesNotCollide && validPosition (ps, ft) pf
-  where doesNotCollide = y > nr' || pf !. (x,y) == black
-        doesNotExceed = x >= 1 && x <= nc' && y >= 1
+  where doesNotCollide = y > nr' || pf !. (x,y) == black -- No colisiona con ficha asentada.
+        doesNotExceed = x >= 1 && x <= nc' && y >= 1 -- No excede al playfield a excepción del pozo.
         nr' = fromIntegral $ nrows pf
         nc' = fromIntegral $ ncols pf
 
 -- Dado un playfield y una figura, introduce la figura en el playfield y elimina las filas llenas.
--- Retorna una tupla con el playfield y una lista con los índices de las filas eliminadas.
-updatePlayfield :: Playfield -> Figure -> (Playfield, [Int])
+-- Retorna una tupla con el playfield y el número de filas eliminadas.
+updatePlayfield :: Playfield -> Figure -> (Playfield, Int)
 updatePlayfield pf ([], _)    = removeFullRows pf -- una vez la ficha se ha situado en el playfield se eliminan las filas llenas.
 updatePlayfield pf (p:ps, ft) = updatePlayfield pf' (ps, ft)
   where pf' = setElem' c p pf -- situa el color del punto p de la figura en el lugar del playfield sobre el que se encuentra.
         c = figuretypeColor ft
 
-removeFullRows :: Playfield -> (Playfield, [Int])
+removeFullRows :: Playfield -> (Playfield, Int)
 removeFullRows pf
-  | null is   = (pf,[])
-  | otherwise = (newRows toAdd nc <-> removeRows is pf, is) -- El playfield resultante es el obtenido tras eliminar las filas 
+  | null is   = (pf,0)
+  | otherwise = (newRows toAdd nc <-> removeRows is pf, toAdd) -- El playfield resultante es el obtenido tras eliminar las filas 
                                                             -- correspondientes y añadir arriba tantas filas en negro como se hayan borrado. 
   where is = fullRows pf -- lista de las filas a eliminar
         toAdd = length is
@@ -362,14 +363,14 @@ removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem
 -- moveDown es una función que dado un estado tetris retorna otro producido tras el intento de bajar en una posición
 -- una ficha: Si la ficha bajada se encuentra en una posición válida -> El nuevo estado tendrá como f la ficha bajada.
 -- Si la ficha bajada se encuentra en una posición no válida hay dos posibles situaciones: 
---    -GameOver si la ficha se encuentra por encima del playfield.
---    -Un estado con nueva ficha y un actualizado.
+--    -GameOver si la ficha no bajada se encuentra por encima del playfield.
+--    -Un estado con nueva ficha y un playfield actualizado.
 moveDown :: Tetris -> Tetris
 moveDown tetris
   | validPosition mf pf_  = tetris {f = mf, clk = dclk tetris} -- clk se reinicia a dclk para que tras un tiempo marcado por dclk la ficha baje automáticamente.
   | isGameOver f_ pf_     = tetris {st = GameOver}
   | otherwise             = placeFigure tetris
-  where mf = moveFigure f_ 0 (-1)
+  where mf = moveFigure f_ 0 (-1) -- figura movida una posición hacia abajo.
         pf_ = pf tetris
         f_ = f tetris
 
@@ -392,7 +393,7 @@ placeFigure tetris = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk =
         (pf', delRows) = updatePlayfield pf_ (f tetris)
         dclk' = max 0.15 (dclk_-0.01) -- el dclk se actualiza tras cada ficha asentada, para acelerar el juego. 
         sc' = (sc tetris) + (round $ n * 100 * (1/dclk_)) -- a menor dclk mayor cantidad de puntos obtenidos tras borrar n filas.
-          where n = fromIntegral $ length $ delRows
+          where n = fromIntegral $ delRows
 
 -- Dada una figura y un playfield informa si estamos en una situación de GameOver.
 -- El GameOver se produce si algunos de los puntos de la figura está por encima del playfield.
