@@ -170,7 +170,28 @@ En la mayoría de funciones definidas se utilizan funciones de Prelude, pondremo
     where n = (genericLength ls)/2 - 0.5
   ```
 ### Funciones recursivas
-
+1. updatePlayfield.
+```
+updatePlayfield pf ([], _)    = removeFullRows pf
+updatePlayfield pf (p:ps, ft) = updatePlayfield pf' (ps, ft)
+  where pf' = setElem' c p pf 
+        c = figuretypeColor ft
+```
+2. validPosition.
+```
+validPosition ([], _) _ = True
+validPosition ((x,y):ps, ft) pf = doesNotExceed && doesNotCollide && validPosition (ps, ft) pf
+  where doesNotCollide = y > nr' || pf !. (x,y) == black
+        doesNotExceed = x >= 1 && x <= nc' && y >= 1 
+        nr' = fromIntegral $ nrows pf
+        nc' = fromIntegral $ ncols pf
+```
+3. move en moveFigure.
+```
+moveFigure (ps, ft) dx dy = (move ps, ft)
+  where move [] = []
+        move ((x,y):r) = (x+dx, y+dy):(move r)
+```
 ### Funciones por patrones
 
 ### Funciones con guardas
