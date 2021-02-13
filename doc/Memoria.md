@@ -575,3 +575,8 @@ Una vez que el juego se vuelva demasiado complicado y nuestras piezas de Tetris 
   | C     | *Hard drop* (hacer caer la pieza)           |
 
 ## Librerías
+En el proyecto se ha utilizado la librería [*CodeWorld*](https://hackage.haskell.org/package/codeworld-api) y el módulo [*Data.Matrix*](https://hackage.haskell.org/package/matrix-0.3.6.1/docs/Data-Matrix.html). Los comandos para instalarlos son:
+```
+cabal install codeworld-api
+cabal install matrix
+```
