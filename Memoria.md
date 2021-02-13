@@ -25,12 +25,13 @@ La temática escogida para el trabajo ha sido el desarrollo de un clon del famos
 Para más información acerca de algunos de los puntos anteriores visitar este enlace ***Link milanote***, donde pueden encontrarse diferentes diagramas y descripciones que nos han servido a lo largo del desarrollo.
 
 ## Estructura
-Todo el código se encuentra en un único archivo, el módulo Tetris, que exporta las funciones *runTetris* y *runCustomTetris*. Podemos diferenciar ocho partes:
+Todo el código se encuentra en un único archivo, el módulo Tetris, que exporta las funciones *runTetris*, *runCustomTetris* y *runCustomTetrisInteractive*. Podemos diferenciar ocho partes:
 
-1. **IO**: es el punto de partida para interactuar con el módulo, define las 2 funciones que exporta, así como otras funciones tipo *IO* utilizadas internamente.
+1. **IO**: es el punto de partida para interactuar con el módulo, define las funciones exportadas, así como otras utilizadas internamente de tipo *IO*.
     ```
     runTetris :: IO ()
-    runCustomTetris :: IO ()
+    runCustomTetris :: Int -> Int -> IO ()
+    runCustomTetrisInteractive :: IO ()
     generateRandoms :: IO FigureGenerator
     getMinNum :: String -> Int -> IO Int
     ```

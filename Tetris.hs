@@ -1,5 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Tetris (runTetris, runCustomTetris) where
+module Tetris
+( runTetris                     -- IO ()
+, runCustomTetris               -- Int -> Int -> IO ()
+, runCustomTetrisInteractive    -- IO ()
+) where
 
 import Data.List (genericLength, findIndices)
 import System.Random (getStdGen, randomRs)
@@ -20,9 +24,18 @@ runTetris = do
 
   activityOf tetris manageEvent drawTetris
 
+-- Inicia una versión personalizada del tetris, utilizando los parámetros de entrada
+-- para definir las dimensiones
+runCustomTetris :: Int -> Int -> IO ()
+runTetris r c = do
+  fgen <- generateRandoms
+  let tetris = startTetris fgen (max r 5) (max c 5)
+
+  activityOf tetris manageEvent drawTetris
+
 -- Inicia una versión personalizada del tetris, pregunta por las dimensiones con
--- las que se quiere jugar
-runCustomTetris :: IO ()
+-- las que se quiere jugar de forma interactiva
+runCustomTetrisInteractive :: IO ()
 runCustomTetris = do
   rows <- getMinNum "Number of rows" 5
   cols <- getMinNum "Number of columns" 5
