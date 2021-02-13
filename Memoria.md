@@ -27,14 +27,14 @@ Para más información acerca de algunos de los puntos anteriores visitar este e
 ## Estructura
 Todo el código se encuentra en un único archivo, el módulo Tetris, que exporta las funciones *runTetris* y *runCustomTetris*. Podemos diferenciar ocho partes:
 
-1. **IO**: es el punto de partida para interactuar con el módulo, define las 2 funciones que exporta, así como otras funciones tipo *IO* utilizadas internamente.  
+1. **IO**: es el punto de partida para interactuar con el módulo, define las 2 funciones que exporta, así como otras funciones tipo *IO* utilizadas internamente.
     ```
     runTetris :: IO ()
     runCustomTetris :: IO ()
     generateRandoms :: IO FigureGenerator
     getMinNum :: String -> Int -> IO Int
     ```
-2. **Types**: define todos los tipos de datos que se utilizan posteriormente.  
+2. **Types**: define todos los tipos de datos que se utilizan posteriormente.
     ```
     data Tetris = Tetris {...}
     type FigureGenerator = [Int]
@@ -48,7 +48,7 @@ Todo el código se encuentra en un único archivo, el módulo Tetris, que export
     data State = Start | Normal | Pause | GameOver
     data Direction = L | R
     ```
-3. **Init**: define las funciones necesarias para iniciar el juego, tanto por primera vez como para las partidas posteriores. 
+3. **Init**: define las funciones necesarias para iniciar el juego, tanto por primera vez como para las partidas posteriores.
     ```
     startTetris :: FigureGenerator -> Int -> Int -> Tetris
     initTetris :: FigureGenerator -> Int -> Int -> Tetris
@@ -73,8 +73,9 @@ Todo el código se encuentra en un único archivo, el módulo Tetris, que export
     drawSquare :: Point -> Color -> Picture
     drawPoint :: Point -> Picture
     drawStats :: Tetris -> Picture
-    drawNextFigure :: Figure -> Picture
-    centerAxis :: Figure -> Figure
+    drawStatsLeft, drawStatsDown :: [Picture] -> Double -> Picture
+    drawStat :: String -> String -> Picture
+    drawNextFigure :: FigureGenerator -> Picture
     drawPause :: Tetris -> Picture
     drawControl :: Picture
     drawGameOver :: Tetris -> Picture
@@ -153,7 +154,7 @@ En la mayoría de funciones definidas se utilizan funciones de Prelude, pondremo
   ```
   removeFullRows pf
     | null is   = (pf,[])
-    | otherwise = (newRows toAdd nc <-> removeRows is pf, is) 
+    | otherwise = (newRows toAdd nc <-> removeRows is pf, is)
     where is = fullRows pf
           toAdd = length is
           nc = ncols pf
@@ -174,7 +175,7 @@ En la mayoría de funciones definidas se utilizan funciones de Prelude, pondremo
 ```
 updatePlayfield pf ([], _)    = removeFullRows pf
 updatePlayfield pf (p:ps, ft) = updatePlayfield pf' (ps, ft)
-  where pf' = setElem' c p pf 
+  where pf' = setElem' c p pf
         c = figuretypeColor ft
 ```
 2. validPosition.
@@ -182,7 +183,7 @@ updatePlayfield pf (p:ps, ft) = updatePlayfield pf' (ps, ft)
 validPosition ([], _) _ = True
 validPosition ((x,y):ps, ft) pf = doesNotExceed && doesNotCollide && validPosition (ps, ft) pf
   where doesNotCollide = y > nr' || pf !. (x,y) == black
-        doesNotExceed = x >= 1 && x <= nc' && y >= 1 
+        doesNotExceed = x >= 1 && x <= nc' && y >= 1
         nr' = fromIntegral $ nrows pf
         nc' = fromIntegral $ ncols pf
 ```
@@ -223,23 +224,17 @@ safeHead [] = Nothing
 safeHead l = Just $ head l
 ```
 ### Funciones con guardas
-1. centerAxis.
-```
-centerAxis (ps, ft) = (ps', ft)
-  where ps' | ft == 'O' || ft == 'I' = map (\(x,y) -> (x-0.5,y)) ps
-            | otherwise = ps
-```
-2. moveDown.
+1. moveDown.
 ```
 moveDown tetris
-  | validPosition mf pf_  = tetris {f = mf, clk = dclk tetris} 
+  | validPosition mf pf_  = tetris {f = mf, clk = dclk tetris}
   | isGameOver f_ pf_     = tetris {st = GameOver}
   | otherwise             = placeFigure tetris
   where mf = moveFigure f_ 0 (-1)posición hacia abajo.
         pf_ = pf tetris
         f_ = f tetris
-``` 
-3. hardDrop.
+```
+2. hardDrop.
 ```
 hardDrop tetris
   | isGameOver f' pf_ = tetris {st = GameOver}
@@ -247,21 +242,21 @@ hardDrop tetris
   where f' = shadowFigure (f tetris) pf_
         pf_ = pf tetris
 ```
-4. moveLeft.
+3. moveLeft.
 ```
 moveLeft tetris
   | validPosition mf (pf tetris) = tetris {f = mf}
   | otherwise = tetris
   where mf = moveFigure (f tetris) (-1) 0
 ```
-5. moveRight.
+4. moveRight.
 ```
 moveRight tetris
   | validPosition mf (pf tetris) = tetris {f = mf}
   | otherwise = tetris
   where mf = moveFigure (f tetris) 1 0
 ```
-6. nextFgen.
+5. nextFgen.
 ```
 nextFgen (current:next:next2:rest)
   | current /= next = (next, next:rest)
@@ -418,8 +413,13 @@ drawFigure f@(ps, ft) pf = draw ps c & draw sps (translucent c)
 ```
 2. drawNextFigure: `map`.
 ```
-drawNextFigure (ps, ft) = colored green (pictures $ map (\p -> draw p) ps)
+drawNextFigure fgen = colored green (translated dx dy (pictures $ map draw ps))
   where draw (x,y) = translated x y (thickRectangle 0.11 0.82 0.82)
+        (ps, ft) = spawnFigure $ fst $ nextFgen fgen
+        (dx, dy) = case ft of
+                    'I' -> (-0.5, -0.5)
+                    'O' -> (-0.5, -1)
+                    _   -> (0, -1)
 ```
 3. fullRows: `map`.
 ```
@@ -449,7 +449,7 @@ shadowFigure (ps,t) pf = (sps,t)
                                     y2 <- [y, y-1..1],
                                     y2 <= nr',
                                     pf !. (x,y2) /= black],
-                        let maxNotEmptyRow = if null ys2 then 0 else head ys2]                       
+                        let maxNotEmptyRow = if null ys2 then 0 else head ys2]
         nr' = fromIntegral $ nrows pf
 ```
 

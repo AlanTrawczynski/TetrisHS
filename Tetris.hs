@@ -17,7 +17,7 @@ runTetris :: IO ()
 runTetris = do
   fgen <- generateRandoms
   let tetris = startTetris fgen 20 10
-  
+
   activityOf tetris manageEvent drawTetris
 
 -- Inicia una versión personalizada del tetris, pregunta por las dimensiones con
@@ -84,7 +84,7 @@ type Clock = Double                   -- Contador de tiempo utilizado para bajar
 type Score = Int                      -- Representa la puntuación
 data State =    -- Representa los diferentes estados del juego:
     Start         -- Estado incial, debe de pulsarse cualquier botón para inciar el juego
-  | Normal        -- Estado en el que se desarrolla el juego 
+  | Normal        -- Estado en el que se desarrolla el juego
   | Pause         -- Estado de pausa
   | GameOver      -- Estado intermediario entre el final de un juego y el comienzo del siguiente
 
@@ -103,11 +103,11 @@ startTetris fgen nr nc = tetris {st = Start}
   where tetris = initTetris fgen nr nc
 
 -- Dado un FigureGenerator y dos números enteros que representan el número de filas y
--- columnas que va a tener el área de juego, inicializa Tetris 
+-- columnas que va a tener el área de juego, inicializa Tetris
 initTetris :: FigureGenerator -> Int -> Int -> Tetris
 initTetris fgen@(n:rest) nr nc = Tetris fgen f pf 0 1 1 0 Normal
     where pf = matrix nr nc (\_ -> black)   -- el color negro indica posiciones vacías
-          f = generateFigure n pf           -- generamos la primera figura con la que jugar 
+          f = generateFigure n pf           -- generamos la primera figura con la que jugar
 
 -- Dada una partida del juego inicializa una nueva, reutilizando el FigureGenerator
 -- de la anterior. Se utiliza para iniciar una nueva partida desde el menú de pausa
@@ -240,8 +240,8 @@ drawStats tetris
           nc' = fromIntegral $ ncols pf_
           pics = [drawStat t d | (t,d) <- stats] ++ [drawNextFigure $ fgen tetris]  -- convertimos stats en pictures y añadimos la representación de la siguiente figura
           stats = [ ("Score", formatScore $ sc tetris),       -- calculamos las estadísticas y añadimos la información de pausa
-                    ("Time played", formatTime $ t tetris), 
-                    ("Bonus", formatBonus $ dclk tetris), 
+                    ("Time played", formatTime $ t tetris),
+                    ("Bonus", formatBonus $ dclk tetris),
                     ("Pause","ESC")]
 
 -- Estas funciones se encargan de tomar los pictures generados por drawStats
