@@ -496,7 +496,10 @@ tryRotateFigure tetris dir = case maybef' of
                 \x -> moveFigure x (-2) 0]
 ```
 ### Módulo
-
+El archivo *Tetris.hs* constituye un módulo que exporta las tres funciones (*runTetris*, *runCustomTetris*, *runCustomTetrisInteractive*) que nos permiten interactuar con el juego:
+- **runTetris**: nos permite ejecutar la versión clásica, con un área de juego 20x10 (filas x columnas).
+- **runCustomTetris**: nos permite ejecutar una versión personalizada, con un área de juego de cualquier dimensión mayor que 5x5. El número de filas y columnas se pasan como parámetros a la función.
+- **runCustomTetrisInteractive**: cumple el mismo objetivo que *runCustomTetris*, con la diferencia de que la introducción del número de filas y columnas se realiza de forma interactiva mediante la consola.
 ### Tipos de datos nuevos
 1. **Tetris**: tipo *data* con sintaxis de registro utilizado para representar las diferentes atributos utilizados en el juego.
 ```
