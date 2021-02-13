@@ -73,7 +73,7 @@ getMinNum q minN = do
 
 -- Types
 -- ----------------------------------------------------------------------------------
--- Tipo de dato utilizado para representar los estados del juego
+-- Tipo de dato utilizado para representar las diferentes atributos utilizados en el juego
 data Tetris =
   Tetris {
     fgen  ::  FigureGenerator,

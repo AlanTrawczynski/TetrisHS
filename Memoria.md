@@ -495,13 +495,48 @@ tryRotateFigure tetris dir = case maybef' of
                 \x -> moveFigure x 2    0,
                 \x -> moveFigure x (-2) 0]
 ```
-### ...
-
 ### Módulo
 
 ### Tipos de datos nuevos
-
+1. **Tetris**: tipo *data* con sintaxis de registro utilizado para representar las diferentes atributos utilizados en el juego.
+```
+data Tetris =
+  Tetris {
+    fgen  ::  FigureGenerator,
+    f     ::  Figure,
+    pf    ::  Playfield,
+    t     ::  Time,
+    dclk  ::  DefaultClock,
+    clk   ::  Clock,
+    sc    ::  Score,
+    st    ::  State
+  }
+```
+2. **State**: tipo *data* utilizado para representar los diferentes estados del juego.
+```
+data State = Start | Normal | Pause | GameOver
+```
+3. **Direction**: tipo *data* utilizado para representar la dirección de rotación de las figuras.
+```
+data Direction = L | R
+```
+4. Diferentes tipos sinónimos utilizados por *Tetris* y en las declaraciones de las funciones.
+```
+type FigureGenerator = [Int]
+type Figure = ([Point], FigureType)
+type FigureType = Char
+type Playfield = Matrix Color
+type Time = Double
+type DefaultClock = Double
+type Clock = Double
+type Score = Int
+```
 ### Tipos de datos abstractos o librerías
+1. **Matrix**: utilizado para almacenar la información acerca del área de juego mediante una matriz de colores.
+```
+type Playfield = Matrix Color
+```
+2. **CodeWorld**: utilizado para la representación gráfica del juego y la captura de eventos (teclas pulsadas).
 
 ## Compilación
 
