@@ -1,15 +1,18 @@
 # TetrisHS
 Clon de Tetris desarrollado en Haskell utilizando CodeWorld, con soporte para áreas de juego de diferentes dimensiones.
 Realizado por Enrique Fernández Corrales y Alan Trawczynski, como trabajo para la asignatura PD 2020/2021.
-![Pantalla de juego](./doc/imgs/playing.png)
+![Tetris clásico](./doc/imgs/playing.png)
+![Tetris 30x10](./doc/imgs/playing30x10.png)
+![Tetris 10x30](./doc/imgs/playing10x30.png)
+![Tetris 25x25](./doc/imgs/playing25x25.png)
 
 ## Instalación
-1. Instalar las [dependencias](##Dependencias).
+1. Instalar las [dependencias](#dependencias).
 2. Clonar el repositorio:
     ```
     git clone https://github.com/AlanTrawczynski/TetrisHS.git
     ```
-3. Definir una función *main* utilizando alguna de las [funciones exportadas por *Tetris.hs*](###Funciones-exportadas-por-Tetris.hs), mediante *Main.hs* u otro archivo.
+3. Definir una función *main* utilizando alguna de las [funciones exportadas por *Tetris.hs*](#funciones-exportadas-por-tetrishs), mediante *Main.hs* u otro archivo.
 4. Compilar el archivo:
     ```
     ghc -threaded nombre-del-archivo
