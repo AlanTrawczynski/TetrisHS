@@ -38,7 +38,7 @@ generateRandoms = do
   return $ randomRs (1, 7) g
 
 -- Pregunta por un número natural >minN, utilizando q en el print de la pregunta
-getMinNum:: String -> Int -> IO Int
+getMinNum :: String -> Int -> IO Int
 getMinNum q minN = do
   putStrLn $ printf "%s (min %d): " q minN
   xs <- getLine
@@ -112,7 +112,7 @@ initTetris fgen@(n:rest) nr nc = Tetris fgen f pf 0 1 1 0 Normal
 -- Dada una partida del juego inicializa una nueva, reutilizando el FigureGenerator
 -- de la anterior. Se utiliza para iniciar una nueva partida desde el menú de pausa
 -- o GameOver
-newGame:: Tetris -> Tetris
+newGame :: Tetris -> Tetris
 newGame tetris = initTetris fgen' (nrows pf_) (ncols pf_)
   where fgen' = drop 3 (fgen tetris)    -- 3: mínimo número a eliminar para evitar repetición de figuras entre partidas
         pf_ = pf tetris
@@ -176,7 +176,7 @@ screenHeight = 20
 -- Delegamos el trabajo del dibujado a sub-dibujadores dependiendo del estado de juego
 drawTetris :: Tetris -> Picture
 drawTetris tetris = draw tetris & bg
-  where bg = solidRectangle screenWidth screenHeight  -- Fondo negro
+  where bg = solidRectangle (screenWidth*1.5) (screenHeight*1.5)  -- Fondo negro
         draw = case st tetris of
                 Start     -> drawStart
                 Normal    -> drawNormal
@@ -229,44 +229,61 @@ drawSquare (x, y) c = colored c (translated x y (solidRectangle 0.95 0.95))
 drawPoint :: Point -> Picture
 drawPoint (x, y) = colored pointColor (translated x y (solidRectangle 0.1 0.1))
 
--- Dado un estado tetris, obtenemos un Picture con las estadísticas.
-drawStats :: Tetris -> Picture
-drawStats tetris =  moveY 1.5 (scaleText (stringPic "Score"))       & moveY 1.1 (scaleData (stringPic score))  &
-                    moveY 2.5 (scaleText (stringPic "Time played")) & moveY 2.1 (scaleData (stringPic time))   &
-                    moveY 3.5 (scaleText (stringPic "Bonus"))       & moveY 3.1 (scaleData (stringPic bonus))  &
-                    moveY 6.5 (scaleText (stringPic "Pause"))       & moveY 6.1 (scaleData (stringPic "ESC"))  &
-                    moveY 8.5 (scaleData $ drawNextFigure fig)
-  where moveY y = translated (-1*k) (y*k) where k = nr'/10
-        scaleText = dilated $ nr' * 0.0225
-        scaleData = dilated $ nr' * 0.04
-        score = formatScore $ sc tetris
-        time = formatTime $ t tetris
-        bonus = formatBonus $ dclk tetris
-        nr' = fromIntegral $ nrows $ pf tetris
-        fig = centerAxis $ spawnFigure (typ) -- obtenemos el Figure a partir del tipo y lo centramos.
-          where typ = fst $ nextFgen (fgen tetris) -- obtenemos cuál será el tipo de la próxima figura.
+-- Dado un estado tetris, obtenemos un Picture con las estadísticas que será
+-- dibujado a la izquierda o debajo del playfield, dependiendo de sus dimensiones.
+drawStats:: Tetris -> Picture
+drawStats tetris
+  | nc' >= 2.8*nr'  = drawStatsDown pics (nc'/10)     -- Si el playfield consta de 2.8 veces más columnas que filas, dibujamos los stats debajo
+  | otherwise       = drawStatsLeft pics (nr'/10)     -- En caso contrario, dibujamos los stats a la izquierda
+    where pf_ = pf tetris
+          nr' = fromIntegral $ nrows pf_
+          nc' = fromIntegral $ ncols pf_
+          pics = [drawStat t d | (t,d) <- stats] ++ [drawNextFigure $ fgen tetris]  -- convertimos stats en pictures y añadimos la representación de la siguiente figura
+          stats = [ ("Score", formatScore $ sc tetris),       -- calculamos las estadísticas y añadimos la información de pausa
+                    ("Time played", formatTime $ t tetris), 
+                    ("Bonus", formatBonus $ dclk tetris), 
+                    ("Pause","ESC")]
 
--- Dada una figura se genera un picture con un estilo concreto. Se usa para mostrar la siguiente figura en stats.
-drawNextFigure :: Figure -> Picture
-drawNextFigure (ps, ft) = colored green (pictures $ map (\p -> draw p) ps)
+-- Estas funciones se encargan de tomar los pictures generados por drawStats
+-- y distribuirlos adecuadamente en base a una constante k, útil para
+-- colocar un picture a una altura o anchura determinada del playfield,
+-- así como redimensionarlo.
+drawStatsLeft, drawStatsDown :: [Picture] -> Double -> Picture
+-- Translada la lista pictures hacia la izquierda y distribuye verticalmente
+drawStatsLeft stats k = pictures [move n (scale p) | (p,n) <- zip stats sep]
+  where move n = translated (-k) (n*k)
+        scale = dilated $ 0.4*k
+        sep = [1.5, 2.5, 3.5, 6.5, 8.5]
+
+-- Translada la lista pictures hacia abajo y distribuye horizontalmente
+drawStatsDown stats k = pictures [move n (scale p) | (p,n) <- zip stats sep]
+  where move n = translated (n*k) (-k*0.6)
+        scale = dilated $ 0.3*k
+        sep = [1, 2.5, 4, 7, 9]
+
+-- Convierte dos Strings al formato utilizado en el texto de las estadísticas.
+drawStat :: String -> String -> Picture
+drawStat t d = tpic & dpic
+  where tpic = translated 0 1 (dilated 0.55 (stringPic t))
+        dpic = stringPic d
+
+-- Calcula la siguiente figura a la actual y la convierte en un picture con un
+-- estilo determinado. Además, centra el dibujo horizontal y verticalmente.
+drawNextFigure :: FigureGenerator -> Picture
+drawNextFigure fgen = colored green (translated dx dy (pictures $ map draw ps))
   where draw (x,y) = translated x y (thickRectangle 0.11 0.82 0.82)
-
--- Dado que, los puntos de una figura se sitúan de modo que toman como centro las coordenadas de posición
--- donde se encuentran y que sus posiciones toman valores discretos sucede que, para figuras que toman posiciones
--- pares del eje horizontal no se encuentran centradas en el (0,0), sino desplazadas 0.5 en la horizontal.
--- Esto ocasiona que, las figuras 'I' y 'O' aparezcan descentradas con respecto al resto de estadísticas.
--- La solución es restar 0.5 en la componente x de cada punto de la figura.
-centerAxis :: Figure -> Figure
-centerAxis (ps, ft) = (ps', ft)
-  where ps' | ft == 'O' || ft == 'I' = map (\(x,y) -> (x-0.5,y)) ps
-            | otherwise = ps
+        (ps, ft) = spawnFigure $ fst $ nextFgen fgen  -- generamos la siguiente Figure
+        (dx, dy) = case ft of -- translación necesaria para centrar la figura vertical y horizontalmente
+                    'I' -> (-0.5, -0.5)
+                    'O' -> (-0.5, -1)
+                    _   -> (0, -1)
 
 -- Pause
 drawPause :: Tetris -> Picture
 drawPause tetris = drawTitle "PAUSED" & drawControl
 
 -- Picture que contiene la información de los controles del juego
-drawControl:: Picture
+drawControl :: Picture
 drawControl = drawTextLines ls
   where ls = ["Esc - Resume",
               "N - New game",
@@ -298,12 +315,12 @@ drawTitle title = translate.scale $ stringPic title
 
 -- Genera un picture del texto representado por una lista de Strings, donde cada elemento
 -- se interpreta como una línea.
-drawTextLines:: [String] -> Picture
+drawTextLines :: [String] -> Picture
 drawTextLines ls = pictures [translated 0 y (stringPic l) | (l, y) <- zip ls [n, n-1..]]
   where n = (genericLength ls)/2 - 0.5
 
 -- Dado un string genera un picture de este con un formato determinado
-stringPic:: String -> Picture
+stringPic :: String -> Picture
 stringPic = (colored green).(styledLettering Plain Monospace).pack
 -- ----------------------------------------------------------------------------------
 
@@ -320,21 +337,21 @@ figuretypeColor ft = dull $ case ft of
   'Z' -> green
   'T' -> purple
 
-pointColor:: Color
+pointColor :: Color
 pointColor = bright yellow
 
-formatScore:: Score -> String
+formatScore :: Score -> String
 formatScore = printf "%05d"
 
 -- Recibe Time y retorna un String en formato mm:ss. t se incrementa cada 16.66ms en 0.01666,
 -- de forma que tras 1 segundo habrá sumado 60 veces 0.01666 -> 60*0.01666 = 1.
-formatTime:: Time -> String
+formatTime :: Time -> String
 formatTime t = printf "%02d:%02d" m s
   where (m, s) = divMod (floor t) 60 :: (Int, Int)
 
 -- El bonus se define como la inversa del dclk. A menor dclk mayor bonus ya que se incrementa la
 -- dificultad.
-formatBonus:: DefaultClock -> String
+formatBonus :: DefaultClock -> String
 formatBonus dclk = printf "x%.2f" (1/dclk)
 -- ----------------------------------------------------------------------------------
 
@@ -444,7 +461,7 @@ placeFigure tetris = tetris {fgen = fgen', f = nf, pf = pf', dclk = dclk', clk =
 
 -- Dada una figura y un playfield informa si estamos en una situación de GameOver.
 -- El GameOver se produce si algunos de los puntos de la figura está por encima del playfield.
-isGameOver:: Figure -> Playfield -> Bool
+isGameOver :: Figure -> Playfield -> Bool
 isGameOver (ps, _) pf = any (>ceil) (map snd ps)
   where ceil = fromIntegral $ nrows pf
 
@@ -576,7 +593,7 @@ shadowFigure (ps,t) pf = (sps,t)
 
 -- Utils
 -- ----------------------------------------------------------------------------------
-safeHead:: [a] -> Maybe a
+safeHead :: [a] -> Maybe a
 safeHead [] = Nothing
 safeHead l = Just $ head l
 -- ----------------------------------------------------------------------------------
