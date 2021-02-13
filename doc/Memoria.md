@@ -542,6 +542,19 @@ type Playfield = Matrix Color
 2. **CodeWorld**: utilizado para la representación gráfica del juego y la captura de eventos (teclas pulsadas).
 
 ## Compilación
+Tal y como hemos visto en el apartado de [*módulo*](###Módulo), *Tetris.hs* exporta tres funciones que sirven para diferentes usos. Para poder compilar el programa, lo mínimo que debemos de hacer es importar el módulo y definir una función *main* de tipo *IO* que llame a alguna de las funciones exportadas:
+```
+import Tetris
+
+main:: IO ()
+main = runTetris
+```
+En el proyecto encontramos un archivo *Main.hs* que ya realiza esto, con una función *main* definida por cada función que exporta *Tetris.hs*, como ejemplo de uso.  
+Una vez disponemos de la función *main* debemos de ejecutar el siguiente comando:
+```
+ghc -threaded nombre-del-archivo
+ghc -threaded Main    // en caso de compilar el archivo Main.hs
+```
 
 ## Uso
 ### Pantallas
