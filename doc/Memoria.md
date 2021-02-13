@@ -22,7 +22,7 @@ La temática escogida para el trabajo ha sido el desarrollo de un clon del famos
 - Implementación del [*hard drop*](https://tetris.fandom.com/wiki/Hard_Drop).
 - Soporte de diferentes dimensiones del área de juego (mínimo 5x5).
 
-Para más información acerca de algunos de los puntos anteriores visitar este enlace ***Link milanote***, donde pueden encontrarse diferentes diagramas y descripciones que nos han servido a lo largo del desarrollo.
+Para más información acerca de algunos de los puntos anteriores visitar [este enlace](https://app.milanote.com/1KLcZF1R2gRM3O?p=5xIkFFEEeKv), donde pueden encontrarse diferentes diagramas y descripciones que nos han servido a lo largo del desarrollo.
 
 ## Estructura
 Todo el código se encuentra en un único archivo, el módulo Tetris, que exporta las funciones *runTetris*, *runCustomTetris* y *runCustomTetrisInteractive*. Podemos diferenciar ocho partes:
