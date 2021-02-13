@@ -544,5 +544,34 @@ type Playfield = Matrix Color
 ## Compilación
 
 ## Uso
+### Pantallas
+Una vez que hemos ejecutado el juego, lo primero que nos encontraremos será una pantalla que nos pedirá pulsar cualquier botón para iniciar la partida.  
+![Pantalla Start](./imgs/start.png)
+Cuando hayamos pulsado algún botón, comenzará nuestra primera partida.  
+![Pantalla de juego](./imgs/playing.png)
+En cualquier momento durante la partida, tal y como se indica a un lado del área de juego, junto a las estadísticas y la siguiente figura, podemos pulsar *Esc* para pausar el juego y consultar los controles.  
+![Pantalla de pausa](./imgs/paused.png)
+Una vez que el juego se vuelva demasiado complicado y nuestras piezas de Tetris toquen techo, el juego habrá terminado, pasando a la pantalla *Game Over*, desde la cual podemos comenzar una partida nueva.  
+![Pantalla Game Over](./imgs/gameover.png)
+### Controles
+- Durante la pantalla de **pausa**:
+  | Tecla | Acción                                      |
+  | -----:|---------------------------------------------|
+  | Esc   | Volver al juego                             |
+  | N     | Abortar partida actual y comenzar una nueva |
+- Durante la pantalla de ***Game Over***:
+  | Tecla | Acción                                      |
+  | -----:|---------------------------------------------|
+  | N     | Comenzar una nueva partida                  |
+- Durante la pantalla de **juego**:
+  | Tecla | Acción                                      |
+  | -----:|---------------------------------------------|
+  | Esc   | Pausar el juego (ir a la pantalla de pausa) |
+  | ←     | Mover la pieza hacia la izquierda           |
+  | →     | Mover la pieza hacia la derecha             |
+  | ↓     | Mover la pieza una fila hacia abajo         |
+  | ↑     | Rotar la pieza en sentido horario           |
+  | Z     | Rotar la pieza en sentido antihorario       |
+  | C     | *Hard drop* (hacer caer la pieza)           |
 
 ## Librerías

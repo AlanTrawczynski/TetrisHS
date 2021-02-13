@@ -27,7 +27,7 @@ runTetris = do
 -- Inicia una versión personalizada del tetris, utilizando los parámetros de entrada
 -- para definir las dimensiones
 runCustomTetris :: Int -> Int -> IO ()
-runTetris r c = do
+runCustomTetris r c = do
   fgen <- generateRandoms
   let tetris = startTetris fgen (max r 5) (max c 5)
 
@@ -36,7 +36,7 @@ runTetris r c = do
 -- Inicia una versión personalizada del tetris, pregunta por las dimensiones con
 -- las que se quiere jugar de forma interactiva
 runCustomTetrisInteractive :: IO ()
-runCustomTetris = do
+runCustomTetrisInteractive = do
   rows <- getMinNum "Number of rows" 5
   cols <- getMinNum "Number of columns" 5
   fgen <- generateRandoms
