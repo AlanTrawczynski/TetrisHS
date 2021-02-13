@@ -1,7 +1,3 @@
-<style>
-    * {text-align: justify}
-</style>
-
 # Memoria de trabajo: TetrisHS
 
 ## Autores
@@ -593,3 +589,9 @@ En el proyecto se ha utilizado la librería [*CodeWorld*](https://hackage.haskel
 cabal install codeworld-api
 cabal install matrix
 ```
+
+---
+
+<style>
+    * {text-align: justify}
+</style>
