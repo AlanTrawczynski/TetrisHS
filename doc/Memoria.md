@@ -535,11 +535,16 @@ type Clock = Double
 type Score = Int
 ```
 ### Tipos de datos abstractos o librerías
+<<<<<<< Updated upstream:doc/Memoria.md
 1. **Matrix**: utilizado para almacenar la información acerca del área de juego mediante una matriz de colores.
 ```
 type Playfield = Matrix Color
 ```
 2. **CodeWorld**: utilizado para la representación gráfica del juego y la captura de eventos (teclas pulsadas).
+=======
+- CodeWorld.
+- Data.Matrix.
+>>>>>>> Stashed changes:Memoria.md
 
 ## Compilación
 
