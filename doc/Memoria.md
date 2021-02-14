@@ -220,32 +220,107 @@ moveFigure (ps, ft) dx dy = (move ps, ft)
 manageStart (KeyRelease _) tetris = tetris {st = Normal}
 manageStart _ tetris = tetris
 ```
-2. managePause.
+2. manageNormal.
+```
+manageNormal (TimePassing dt) tetris
+  | clk tetris < 0  = moveDown tetris                                   
+  | otherwise       = tetris {t = (t tetris)+dt, clk = (clk tetris)-dt}   
+manageNormal (KeyRelease k) tetris = case k of
+  "Esc" -> tetris {st = Pause} 
+  "C"   -> hardDrop tetris      
+  _     -> tetris
+manageNormal (KeyPress k) tetris = case k of
+  "Up"    -> tryRotateFigure tetris R    
+  "Z"     -> tryRotateFigure tetris L     
+  "Down"  -> moveDown tetris             
+  "Left"  -> moveLeft tetris             
+  "Right" -> moveRight tetris             
+  _       -> tetris
+manageNormal _ tetris = tetris
+```
+3. managePause.
 ```
 managePause (KeyRelease "Esc") tetris = tetris {st = Normal}
 managePause (KeyRelease "N") tetris = newGame tetris
 managePause _ tetris = tetris
 ```
-3. manageGameover.
+4. manageGameover.
 ```
 manageGameover (KeyRelease "N") tetris = newGame tetris
 manageGameover _ tetris = tetris
 ```
-4. removeRows.
+5. validPosition.
+```
+validPosition ([], _) _ = True
+validPosition ((x,y):ps, ft) pf = doesNotExceed && doesNotCollide && validPosition (ps, ft) pf
+  where doesNotCollide = y > nr' || pf !. (x,y) == black 
+        doesNotExceed = x >= 1 && x <= nc' && y >= 1   
+        nr' = fromIntegral $ nrows pf
+        nc' = fromIntegral $ ncols pf
+```
+6. removeRows.
 ```
 removeRows [] pf = pf
 removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem i toRemove]
   where nr = nrows pf
         pfList = toLists pf
 ```
-5. safeHead.
+7. updatePlayfield.
+```
+updatePlayfield pf ([], _)    = removeFullRows pf
+updatePlayfield pf (p:ps, ft) = updatePlayfield pf' (ps, ft)
+  where pf' = setElem' c p pf 
+        c = figuretypeColor ft
+```
+8. safeHead.
 ```
 safeHead:: [a] -> Maybe a
 safeHead [] = Nothing
 safeHead l = Just $ head l
 ```
 ### Funciones con guardas
-1. moveDown.
+1. manageNormal.
+```
+manageNormal (TimePassing dt) tetris
+  | clk tetris < 0  = moveDown tetris                                   
+  | otherwise       = tetris {t = (t tetris)+dt, clk = (clk tetris)-dt}   
+manageNormal (KeyRelease k) tetris = case k of
+  "Esc" -> tetris {st = Pause} 
+  "C"   -> hardDrop tetris      
+  _     -> tetris
+manageNormal (KeyPress k) tetris = case k of
+  "Up"    -> tryRotateFigure tetris R    
+  "Z"     -> tryRotateFigure tetris L     
+  "Down"  -> moveDown tetris             
+  "Left"  -> moveLeft tetris             
+  "Right" -> moveRight tetris             
+  _       -> tetris
+manageNormal _ tetris = tetris
+```
+2. drawStats.
+```
+drawStats tetris
+  | nc' >= 2.8*nr'  = drawStatsDown pics (nc'/10)     
+  | otherwise       = drawStatsLeft pics (nr'/10)    
+    where pf_ = pf tetris
+          nr' = fromIntegral $ nrows pf_
+          nc' = fromIntegral $ ncols pf_
+          pics = [drawStat t d | (t,d) <- stats] ++ [drawNextFigure $ fgen tetris]
+          stats = [ ("Score", formatScore $ sc tetris),      
+                    ("Time played", formatTime $ t tetris),
+                    ("Bonus", formatBonus $ dclk tetris),
+                    ("Pause","ESC")]
+```
+3. removeFullRows.
+```
+removeFullRows pf
+  | null is   = (pf, 0)
+  | otherwise = (newRows toAdd nc <-> removeRows is pf, toAdd) 
+  where is = fullRows pf 
+        toAdd = length is
+        nc = ncols pf
+```
+4. moveDown.
 ```
 moveDown tetris
   | validPosition mf pf_  = tetris {f = mf, clk = dclk tetris}
@@ -255,7 +330,7 @@ moveDown tetris
         pf_ = pf tetris
         f_ = f tetris
 ```
-2. hardDrop.
+5. hardDrop.
 ```
 hardDrop tetris
   | isGameOver f' pf_ = tetris {st = GameOver}
@@ -263,25 +338,39 @@ hardDrop tetris
   where f' = shadowFigure (f tetris) pf_
         pf_ = pf tetris
 ```
-3. moveLeft.
+6. moveLeft.
 ```
 moveLeft tetris
   | validPosition mf (pf tetris) = tetris {f = mf}
   | otherwise = tetris
   where mf = moveFigure (f tetris) (-1) 0
 ```
-4. moveRight.
+7. moveRight.
 ```
 moveRight tetris
   | validPosition mf (pf tetris) = tetris {f = mf}
   | otherwise = tetris
   where mf = moveFigure (f tetris) 1 0
 ```
-5. nextFgen.
+8. nextFgen.
 ```
 nextFgen (current:next:next2:rest)
   | current /= next = (next, next:rest)
   | otherwise       = (next2, next2:rest)
+```
+9. generateFigure.
+```
+generateFigure n pf = (ps', ft)
+  where ps' = map (\(x, y) -> (x+dx, y+dy)) ps
+        (ps, ft) = spawnFigure n
+        dx  
+          | even nc                 = nc'/2
+          | ft == 'I' || ft == 'O'  = nc'/2 - 0.5
+          | otherwise               = nc'/2 + 0.5
+        dy = nr' + 1 
+        nc = ncols pf
+        nc' = fromIntegral nc
+        nr' = fromIntegral $ nrows pf
 ```
 ### Funciones con case of
 1. manageEvent.
@@ -321,7 +410,17 @@ drawTetris tetris = draw tetris & bg
                 Pause     -> drawPause
                 GameOver  -> drawGameOver
 ```
-4. figuretypeColor.
+4. drawNextFigure.
+```
+drawNextFigure fgen = colored green (translated dx dy (pictures $ map draw ps))
+  where draw (x,y) = translated x y (thickRectangle 0.11 0.82 0.82)
+        (ps, ft) = spawnFigure $ fst $ nextFgen fgen
+        (dx, dy) = case ft of 
+                    'I' -> (-0.5, -0.5)
+                    'O' -> (-0.5, -1)
+                    _   -> (0, -1)
+```
+5. figuretypeColor.
 ```
 figuretypeColor ft = dull $ case ft of
   'O' -> yellow
@@ -332,7 +431,7 @@ figuretypeColor ft = dull $ case ft of
   'Z' -> green
   'T' -> purple
 ```
-5. spawnFigure.
+6. spawnFigure.
 ```
 spawnFigure n = case n of
   1 -> ([(0,1),   (1,1),    (0,2),    (1,2)],   'O')
@@ -343,7 +442,7 @@ spawnFigure n = case n of
   6 -> ([(0,1),   (1,1),    (-1,2),   (0,2)],   'Z')
   7 -> ([(0,1),   (-1,1),   (1,1),    (0,2)],   'T')
 ```
-6. tryRotateFigure.
+7. tryRotateFigure.
 ```
 tryRotateFigure tetris dir = case maybef' of
   Nothing -> tetris
@@ -356,7 +455,7 @@ tryRotateFigure tetris dir = case maybef' of
                 \x -> moveFigure x 2    0,
                 \x -> moveFigure x (-2) 0]
 ```
-7. rotateFigure.
+8. rotateFigure.
 ```
 rotateFigure (ps, ft) dir = case ft of
   'O' -> (ps, ft)
@@ -371,7 +470,7 @@ rotateFigure (ps, ft) dir = case ft of
     where ps' = center:(rotatePoints center rest dir)
           (center:rest) = ps
 ```
-8. rotatePoints.
+9. rotatePoints.
 ```
 rotatePoints center ps dir = map (rotate center) ps
   where rotate (xo,yo) (xi,yi) = case dir of
@@ -387,28 +486,47 @@ drawPlayfield pf = pictures [if c /= black then drawSquare p c else drawPoint p 
                             let p = (fromIntegral col, fromIntegral row),
                             let c = pf !. p]
 ```
-2. drawTextLines.
+2. drawStats.
+```
+drawStats tetris
+  | nc' >= 2.8*nr'  = drawStatsDown pics (nc'/10)    
+  | otherwise       = drawStatsLeft pics (nr'/10) 
+    where pf_ = pf tetris
+          nr' = fromIntegral $ nrows pf_
+          nc' = fromIntegral $ ncols pf_
+          pics = [drawStat t d | (t,d) <- stats] ++ [drawNextFigure $ fgen tetris]
+          stats = [ ("Score", formatScore $ sc tetris), 
+                    ("Time played", formatTime $ t tetris),
+                    ("Bonus", formatBonus $ dclk tetris),
+                    ("Pause","ESC")]
+```
+3. drawStatsLeft.
+```
+drawStatsLeft stats k = pictures [move n (scale p) | (p,n) <- zip stats sep]
+  where move n = translated (-k) (n*k)
+        scale = dilated $ 0.4*k
+        sep = [1.5, 2.5, 3.5, 6.5, 8.5]
+```
+4. drawStatsDown.
+```
+drawStatsDown stats k = pictures [move n (scale p) | (p,n) <- zip stats sep]
+  where move n = translated (n*k) (-k*0.6)
+        scale = dilated $ 0.3*k
+        sep = [1, 2.5, 4, 7, 9]
+```
+5. drawTextLines.
 ```
 drawTextLines ls = pictures [translated 0 y (stringPic l) | (l, y) <- zip ls [n, n-1..]]
   where n = (genericLength ls)/2 - 0.5
 ```
-3. removeFullRows.
-```
-removeFullRows pf
-  | null is   = (pf,0)
-  | otherwise = (newRows toAdd nc <-> removeRows is pf, toAdd)
-  where is = fullRows pf
-        toAdd = length is
-        nc = ncols pf
-```
-4. removeRows.
+6. removeRows.
 ```
 removeRows [] pf = pf
 removeRows toRemove pf = fromLists [row | (i,row) <- zip [1..nr] pfList, notElem i toRemove]
   where nr = nrows pf
         pfList = toLists pf
 ```
-5. shadowFigure.
+7. shadowFigure.
 ```
 shadowFigure (ps,t) pf = (sps,t)
   where sps = map (\(x,y) -> (x, y-yDif+1)) ps
@@ -447,7 +565,12 @@ drawNextFigure fgen = colored green (translated dx dy (pictures $ map draw ps))
 fullRows pf = map (+1) (findIndices p (toLists pf))
   where p = all (/= black)
 ```
-4. generateFigure: `map`.
+4. isGameOver: `map`.
+```
+isGameOver (ps, _) pf = any (>ceil) (map snd ps)
+  where ceil = fromIntegral $ nrows pf
+```
+5. generateFigure: `map`.
 ```
 generateFigure n pf = (ps', ft)
   where ps' = map (\(x, y) -> (x+dx, y+dy)) ps
@@ -460,7 +583,14 @@ generateFigure n pf = (ps', ft)
         nc' = fromIntegral nc
         nr' = fromIntegral $ nrows pf
 ```
-5. shadowFigure: `map`.
+6. rotatePoints: `map`.
+```
+rotatePoints center ps dir = map (rotate center) ps
+  where rotate (xo,yo) (xi,yi) = case dir of
+          R -> (yi-yo+xo, -(xi-xo)+yo)
+          L -> (-(yi-yo)+xo, xi-xo+yo)
+```
+7. shadowFigure: `map`.
 ```
 shadowFigure (ps,t) pf = (sps,t)
   where sps = map (\(x,y) -> (x, y-yDif+1)) ps
@@ -474,7 +604,7 @@ shadowFigure (ps,t) pf = (sps,t)
         nr' = fromIntegral $ nrows pf
 ```
 
-6. tryRotateFigure: `filter`.
+8. tryRotateFigure: `filter`, `map`.
 ```
 tryRotateFigure tetris dir = case maybef' of
   Nothing -> tetris
