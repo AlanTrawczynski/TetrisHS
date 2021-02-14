@@ -326,7 +326,7 @@ moveDown tetris
   | validPosition mf pf_  = tetris {f = mf, clk = dclk tetris}
   | isGameOver f_ pf_     = tetris {st = GameOver}
   | otherwise             = placeFigure tetris
-  where mf = moveFigure f_ 0 (-1)posición hacia abajo.
+  where mf = moveFigure f_ 0 (-1)
         pf_ = pf tetris
         f_ = f tetris
 ```
