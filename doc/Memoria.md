@@ -22,6 +22,8 @@
     2. [Controles](#controles)
 7. [Librerías](#librerías)
 
+---
+
 ## Autores
 | Nombre    | Apellidos             | UVUS      | Correo                    |
 | ---------:|-----------------------|-----------|---------------------------|
