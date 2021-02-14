@@ -1,4 +1,26 @@
 # Memoria de trabajo: TetrisHS
+## Índice
+1. [Autores](#autores)
+2. [Temática](#temática)
+3. [Estructura](#estructura)
+4. [Requisitos](#requisitos)
+    1. [Funciones de Prelude](#funciones-de-prelude)
+    2. [Funciones de Data.List](#funciones-de-datalist) 
+    3. [Funciones recursivas](#funciones-recursivas)
+    4. [Funciones por patrones](#funciones-por-patrones)
+    5. [Funciones con guardas](#funciones-con-guardas)
+    6. [Funciones con case of](#funciones-con-case-of)
+    7. [Funciones con listas por comprensión](#funciones-con-listas-por-comprensión)
+    8. [Funciones con orden superior](#funciones-con-orden-superior)
+    9. [Funciones con evaluación perezosa](#funciones-con-evaluación-perezosa)
+    10. [Módulo](#módulo)
+    11. [Tipos de datos nuevos](#tipos-de-datos-nuevos)
+    12. [Tipos de datos abstractos o librerías](#tipos-de-datos-abstractos-o-librerías)
+5. [Compilación](#compilación)
+6. [Uso](#uso)
+    1. [Pantallas](#pantallas)
+    2. [Controles](#controles)
+7. [Librerías](#librerías)
 
 ## Autores
 | Nombre    | Apellidos             | UVUS      | Correo                    |
